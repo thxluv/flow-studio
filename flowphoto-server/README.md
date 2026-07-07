@@ -28,9 +28,6 @@ python -m pip install -r requirements.txt
 
 ### 3. Запуск
 
-Двойной клик **`start-flowphoto.bat`** в корне проекта  
-или:
-
 ```powershell
 cd flowphoto-server
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
