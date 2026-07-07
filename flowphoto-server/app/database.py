@@ -5,6 +5,7 @@ SQLite: метаданные + зашифрованные байты (BLOB).
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -16,9 +17,10 @@ DATA_DIR = Path(os.environ.get("FLOWPHOTO_DATA_DIR", str(_DEFAULT_DATA)))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "flowphoto.db"
 
-DEFAULT_RETENTION_SECONDS = 30 * 24 * 3600  # 30 дней
-MIN_RETENTION_SECONDS = 3600  # 1 час
-MAX_RETENTION_SECONDS = 365 * 24 * 3600  # 1 год
+DEFAULT_RETENTION_SECONDS = 30 * 24 * 3600
+MIN_RETENTION_SECONDS = 3600
+MAX_RETENTION_SECONDS = 365 * 24 * 3600
+MAX_STORAGE_BYTES = int(os.environ.get("FLOWPHOTO_MAX_STORAGE_BYTES", str(500 * 1024 * 1024)))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS photos (
@@ -29,11 +31,36 @@ CREATE TABLE IF NOT EXISTS photos (
     size_bytes          INTEGER NOT NULL,
     created_at          TEXT NOT NULL,
     retention_seconds   INTEGER NOT NULL DEFAULT 2592000,
-    last_accessed_at    TEXT
+    last_accessed_at    TEXT,
+    view_count          INTEGER NOT NULL DEFAULT 0,
+    burn_after_read     INTEGER NOT NULL DEFAULT 0,
+    link_password_hash  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_photos_created ON photos(created_at);
 CREATE INDEX IF NOT EXISTS idx_photos_last_access ON photos(last_accessed_at);
+
+CREATE TABLE IF NOT EXISTS vaults (
+    vault_id        TEXT PRIMARY KEY,
+    password_hash   TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    last_login_at   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS vault_photos (
+    vault_id    TEXT NOT NULL,
+    short_id    TEXT NOT NULL,
+    label       TEXT NOT NULL DEFAULT '',
+    added_at    TEXT NOT NULL,
+    PRIMARY KEY (vault_id, short_id)
+);
+CREATE INDEX IF NOT EXISTS idx_vault_photos_vault ON vault_photos(vault_id);
 """
+
+_PHOTO_COLS = (
+    "short_id", "original_name", "mime_type", "size_bytes", "created_at",
+    "retention_seconds", "last_accessed_at", "view_count", "burn_after_read",
+    "link_password_hash",
+)
 
 
 def _parse_iso(value: str) -> datetime:
@@ -55,22 +82,32 @@ def clamp_retention(seconds: int) -> int:
     return max(MIN_RETENTION_SECONDS, min(MAX_RETENTION_SECONDS, int(seconds)))
 
 
+def _migrate_photos(conn: sqlite3.Connection) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(photos)").fetchall()}
+    if not cols:
+        return
+    if "encrypted_data" not in cols:
+        conn.execute("DROP TABLE photos")
+        return
+    migrations = {
+        "retention_seconds": f"INTEGER NOT NULL DEFAULT {DEFAULT_RETENTION_SECONDS}",
+        "last_accessed_at": "TEXT",
+        "view_count": "INTEGER NOT NULL DEFAULT 0",
+        "burn_after_read": "INTEGER NOT NULL DEFAULT 0",
+        "link_password_hash": "TEXT",
+    }
+    for col, typedef in migrations.items():
+        if col not in cols:
+            conn.execute(f"ALTER TABLE photos ADD COLUMN {col} {typedef}")
+
+
 def init_db() -> None:
     with get_connection() as conn:
-        rows = conn.execute(
+        row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='photos'"
         ).fetchone()
-        if rows:
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(photos)").fetchall()}
-            if "encrypted_data" not in cols:
-                conn.execute("DROP TABLE photos")
-            else:
-                if "retention_seconds" not in cols:
-                    conn.execute(
-                        f"ALTER TABLE photos ADD COLUMN retention_seconds INTEGER NOT NULL DEFAULT {DEFAULT_RETENTION_SECONDS}"
-                    )
-                if "last_accessed_at" not in cols:
-                    conn.execute("ALTER TABLE photos ADD COLUMN last_accessed_at TEXT")
+        if row:
+            _migrate_photos(conn)
         conn.executescript(SCHEMA)
         conn.commit()
 
@@ -103,30 +140,38 @@ def compute_expires_at(photo: dict[str, Any]) -> str:
     return _utc_iso(activity + timedelta(seconds=retention))
 
 
-def photo_expiry_meta(photo: dict[str, Any]) -> dict[str, Any]:
+def _public_meta(photo: dict[str, Any]) -> dict[str, Any]:
     return {
         "retention_seconds": photo.get("retention_seconds") or DEFAULT_RETENTION_SECONDS,
         "last_accessed_at": photo.get("last_accessed_at"),
         "expires_at": compute_expires_at(photo),
-        "expired": is_photo_expired(photo),
+        "view_count": int(photo.get("view_count") or 0),
+        "burn_after_read": bool(photo.get("burn_after_read")),
+        "has_link_password": bool(photo.get("link_password_hash")),
     }
 
 
 def delete_photo(short_id: str) -> bool:
     with get_connection() as conn:
+        conn.execute("DELETE FROM vault_photos WHERE short_id = ?", (short_id,))
         cur = conn.execute("DELETE FROM photos WHERE short_id = ?", (short_id,))
         conn.commit()
         return cur.rowcount > 0
 
 
 def touch_photo_access(short_id: str) -> None:
-    now = _utc_iso()
     with get_connection() as conn:
         conn.execute(
             "UPDATE photos SET last_accessed_at = ? WHERE short_id = ?",
-            (now, short_id),
+            (_utc_iso(), short_id),
         )
         conn.commit()
+
+
+def get_total_storage_bytes() -> int:
+    with get_connection() as conn:
+        row = conn.execute("SELECT COALESCE(SUM(size_bytes), 0) AS total FROM photos").fetchone()
+    return int(row["total"])
 
 
 def cleanup_expired_photos() -> int:
@@ -134,16 +179,37 @@ def cleanup_expired_photos() -> int:
     deleted = 0
     with get_connection() as conn:
         rows = conn.execute(
+            "SELECT short_id, created_at, last_accessed_at, retention_seconds FROM photos"
+        ).fetchall()
+        for row in rows:
+            if is_photo_expired(dict(row), now):
+                conn.execute("DELETE FROM vault_photos WHERE short_id = ?", (row["short_id"],))
+                conn.execute("DELETE FROM photos WHERE short_id = ?", (row["short_id"],))
+                deleted += 1
+        conn.commit()
+    return deleted
+
+
+def cleanup_storage_overflow() -> int:
+    """Удаляет самые старые неактивные фото при переполнении диска."""
+    deleted = 0
+    total = get_total_storage_bytes()
+    if total <= MAX_STORAGE_BYTES:
+        return 0
+    with get_connection() as conn:
+        rows = conn.execute(
             """
-            SELECT short_id, created_at, last_accessed_at, retention_seconds
+            SELECT short_id, size_bytes, created_at, last_accessed_at, retention_seconds
             FROM photos
+            ORDER BY COALESCE(last_accessed_at, created_at) ASC
             """
         ).fetchall()
         for row in rows:
-            photo = dict(row)
-            if is_photo_expired(photo, now):
-                conn.execute("DELETE FROM photos WHERE short_id = ?", (photo["short_id"],))
-                deleted += 1
+            if get_total_storage_bytes() <= MAX_STORAGE_BYTES:
+                break
+            conn.execute("DELETE FROM vault_photos WHERE short_id = ?", (row["short_id"],))
+            conn.execute("DELETE FROM photos WHERE short_id = ?", (row["short_id"],))
+            deleted += 1
         conn.commit()
     return deleted
 
@@ -155,6 +221,9 @@ def insert_photo(
     encrypted_data: bytes,
     size_bytes: int,
     retention_seconds: int = DEFAULT_RETENTION_SECONDS,
+    *,
+    burn_after_read: bool = False,
+    link_password_hash: str | None = None,
 ) -> dict[str, Any]:
     created_at = _utc_iso()
     retention_seconds = clamp_retention(retention_seconds)
@@ -163,18 +232,16 @@ def insert_photo(
             """
             INSERT INTO photos (
                 short_id, original_name, mime_type, encrypted_data, size_bytes,
-                created_at, retention_seconds, last_accessed_at
+                created_at, retention_seconds, last_accessed_at,
+                view_count, burn_after_read, link_password_hash
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?)
             """,
             (
-                short_id,
-                original_name,
-                mime_type,
-                encrypted_data,
-                size_bytes,
-                created_at,
-                retention_seconds,
+                short_id, original_name, mime_type, encrypted_data, size_bytes,
+                created_at, retention_seconds,
+                1 if burn_after_read else 0,
+                link_password_hash,
             ),
         )
         conn.commit()
@@ -186,51 +253,99 @@ def insert_photo(
         "created_at": created_at,
         "retention_seconds": retention_seconds,
         "last_accessed_at": None,
+        "view_count": 0,
+        "burn_after_read": burn_after_read,
+        "link_password_hash": link_password_hash,
     }
-    return {**photo, **photo_expiry_meta(photo)}
+    return {**photo, **_public_meta(photo)}
+
+
+def _load_photo_row(short_id: str) -> dict[str, Any] | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            f"SELECT {', '.join(_PHOTO_COLS)} FROM photos WHERE short_id = ?",
+            (short_id,),
+        ).fetchone()
+    return dict(row) if row else None
 
 
 def get_photo(short_id: str, *, touch_access: bool = False) -> dict[str, Any] | None:
-    with get_connection() as conn:
-        row = conn.execute(
-            """
-            SELECT short_id, original_name, mime_type, size_bytes, created_at,
-                   retention_seconds, last_accessed_at
-            FROM photos WHERE short_id = ?
-            """,
-            (short_id,),
-        ).fetchone()
-    if row is None:
+    photo = _load_photo_row(short_id)
+    if photo is None:
         return None
-    photo = dict(row)
     if is_photo_expired(photo):
         delete_photo(short_id)
         return None
     if touch_access:
         touch_photo_access(short_id)
         photo["last_accessed_at"] = _utc_iso()
-    return {**photo, **photo_expiry_meta(photo)}
+    safe = {k: photo[k] for k in _PHOTO_COLS if k != "link_password_hash"}
+    safe["link_password_hash"] = photo.get("link_password_hash")
+    return {**safe, **_public_meta(photo)}
 
 
-def get_encrypted_blob(short_id: str, *, touch_access: bool = True) -> bytes | None:
+def fetch_encrypted_blob(
+    short_id: str,
+    *,
+    link_password: str | None = None,
+) -> tuple[bytes | None, str | None]:
+    """
+    Возвращает (blob, error).
+    Увеличивает view_count, обновляет last_accessed_at.
+    burn_after_read — удаляет после выдачи.
+    """
+    from app.security import verify_secret
+
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT encrypted_data, created_at, last_accessed_at, retention_seconds
+            SELECT encrypted_data, created_at, last_accessed_at, retention_seconds,
+                   link_password_hash, burn_after_read, view_count
             FROM photos WHERE short_id = ?
             """,
             (short_id,),
         ).fetchone()
     if row is None:
-        return None
-    photo = {
-        "created_at": row["created_at"],
-        "last_accessed_at": row["last_accessed_at"],
-        "retention_seconds": row["retention_seconds"],
-    }
-    if is_photo_expired(photo):
+        return None, "not_found"
+
+    meta = dict(row)
+    if is_photo_expired(meta):
         delete_photo(short_id)
-        return None
-    if touch_access:
-        touch_photo_access(short_id)
-    return row["encrypted_data"]
+        return None, "expired"
+
+    pwd_hash = meta.get("link_password_hash")
+    if pwd_hash:
+        if not link_password or not verify_secret(link_password, pwd_hash):
+            return None, "password_required"
+
+    blob = row["encrypted_data"]
+    burn = bool(meta.get("burn_after_read"))
+    new_count = int(meta.get("view_count") or 0) + 1
+    now = _utc_iso()
+
+    with get_connection() as conn:
+        if burn:
+            conn.execute("DELETE FROM vault_photos WHERE short_id = ?", (short_id,))
+            conn.execute("DELETE FROM photos WHERE short_id = ?", (short_id,))
+        else:
+            conn.execute(
+                "UPDATE photos SET last_accessed_at = ?, view_count = ? WHERE short_id = ?",
+                (now, new_count, short_id),
+            )
+        conn.commit()
+
+    return blob, None
+
+
+def storage_stats() -> dict[str, Any]:
+    total = get_total_storage_bytes()
+    with get_connection() as conn:
+        count = conn.execute("SELECT COUNT(*) AS c FROM photos").fetchone()["c"]
+    usage = shutil.disk_usage(DATA_DIR)
+    return {
+        "photos_count": count,
+        "storage_bytes": total,
+        "storage_max_bytes": MAX_STORAGE_BYTES,
+        "disk_free_bytes": usage.free,
+        "disk_total_bytes": usage.total,
+    }

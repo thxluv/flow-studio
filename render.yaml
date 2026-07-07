@@ -1,5 +1,9 @@
-# Render.com Blueprint — корень репозитория flow-studio
+# Render.com Blueprint — FlowPhoto
 # https://dashboard.render.com/ → New → Blueprint
+#
+# Диск /data: на Free данные эфемерны. Для постоянства:
+#   1) Starter plan + disk ниже, ИЛИ
+#   2) Бэкап в Cloudflare R2 (env FLOWPHOTO_BACKUP_*)
 services:
   - type: web
     name: flowphoto
@@ -13,3 +17,21 @@ services:
         value: /data
       - key: FLOWNOTE_PUBLIC_URL
         value: https://thxluv.github.io/flow-studio/index.html
+      - key: FLOWPHOTO_MAX_STORAGE_BYTES
+        value: "524288000"
+      - key: FLOWPHOTO_RATE_MAX
+        value: "60"
+      - key: FLOWPHOTO_RATE_WINDOW
+        value: "60"
+      - key: PORT
+        value: "8000"
+      # Секреты задай в Render Dashboard → Environment:
+      # FLOWPHOTO_VAULT_SECRET — случайная строка 32+ символов
+      # FLOWPHOTO_BACKUP_BUCKET, FLOWPHOTO_BACKUP_ACCESS_KEY, FLOWPHOTO_BACKUP_SECRET_KEY
+      # FLOWPHOTO_BACKUP_ENDPOINT — для R2: https://<accountid>.r2.cloudflarestorage.com
+      # FLOWPHOTO_BACKUP_PREFIX — flowphoto
+    # Раскомментируй на Starter plan ($7/мес) для постоянного диска:
+    # disk:
+    #   name: flowphoto-data
+    #   mountPath: /data
+    #   sizeGB: 1

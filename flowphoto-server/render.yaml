@@ -1,11 +1,10 @@
-# Render.com — деплой FlowPhoto в интернет (бесплатный старт)
-# Dashboard → New → Blueprint → подключи репозиторий flow-studio
+# Render.com — FlowPhoto (flowphoto-server/)
 services:
   - type: web
     name: flowphoto
     runtime: docker
-    dockerfilePath: ./flowphoto-server/Dockerfile
-    dockerContext: ./flowphoto-server
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free
     healthCheckPath: /health
     envVars:
@@ -13,5 +12,7 @@ services:
         value: /data
       - key: FLOWNOTE_PUBLIC_URL
         value: https://thxluv.github.io/flow-studio/index.html
+      - key: FLOWPHOTO_MAX_STORAGE_BYTES
+        value: "524288000"
       - key: PORT
         value: "8000"

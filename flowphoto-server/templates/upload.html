@@ -1,45 +1,37 @@
 {% extends "base.html" %}
 {% block title %}FlowPhoto — Загрузить фото{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h1 class="font-display text-2xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
+<div class="mb-6 sm:mb-8">
+    <h1 class="font-display text-xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
     <p class="text-sm text-slate-400 leading-relaxed">
-        Фото шифруется <span class="text-violet-300">в твоём браузере</span> (AES-GCM 256).
-        Сервер видит только зашифрованные байты. Ключ — в конце ссылки после <code class="text-violet-400/90">#</code>.
+        Шифрование <span class="text-violet-300">в браузере</span> (AES-GCM 256). Ключ — в ссылке после <code class="text-violet-400/90">#</code>.
+        Можно загрузить несколько фото сразу.
     </p>
 </div>
 
-<div id="drop-zone" class="fp-drop rounded-2xl p-8 sm:p-12 text-center cursor-pointer mb-6"
+<div id="vault-badge" class="hidden mb-4 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2 text-[11px] text-violet-200 flex items-center justify-between gap-2">
+    <span><i class="fa-solid fa-bookmark mr-1 text-violet-400"></i>Vault активен — новые фото попадут в библиотеку</span>
+    <a href="/vault" class="text-violet-400 hover:text-violet-200 shrink-0">Открыть</a>
+</div>
+
+<div id="drop-zone" class="fp-drop rounded-2xl p-6 sm:p-10 text-center cursor-pointer mb-5"
      onclick="document.getElementById('file-input').click()">
-    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="hidden">
     <i class="fa-solid fa-cloud-arrow-up text-3xl text-violet-500/50 mb-3"></i>
     <p class="text-sm text-slate-300 mb-1">Перетащи фото или нажми для выбора</p>
-    <p class="text-[10px] text-slate-500 font-mono">JPG · PNG · WebP · до {{ max_mb }} МБ · EXIF удаляется</p>
+    <p class="text-[10px] text-slate-500 font-mono">JPG · PNG · WebP · до {{ max_mb }} МБ · пакетная загрузка</p>
 </div>
 
 <div id="preview-block" class="hidden space-y-4 mb-6">
-    <div class="grid sm:grid-cols-2 gap-4">
-        <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 flex items-center justify-center min-h-[180px]">
-            <img id="preview-img" alt="Превью" class="rounded-xl max-w-full max-h-[240px] object-contain">
-        </div>
-        <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 text-xs text-slate-400 font-mono space-y-1" id="meta-report"></div>
-    </div>
+    <div id="preview-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
 
-    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-4">
-        <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-violet-600/15 border border-violet-500/25 flex items-center justify-center shrink-0 mt-0.5">
-                <i class="fa-solid fa-hourglass-half text-violet-400 text-xs"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-                <div class="text-sm text-slate-200 font-medium mb-0.5">Срок хранения</div>
-                <p class="text-[11px] text-slate-500 leading-relaxed">
-                    Фото удалится, если ссылкой не пользовались выбранное время.
-                    Каждый просмотр <span class="text-violet-300/80">обновляет таймер</span>.
-                </p>
-            </div>
-        </div>
-
+    <!-- Срок хранения -->
+    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 space-y-3">
+        <div class="text-sm text-slate-200 font-medium"><i class="fa-solid fa-hourglass-half text-violet-400 mr-1 text-xs"></i> Срок хранения</div>
         <div class="flex flex-wrap gap-2" id="retention-presets">
             <button type="button" data-seconds="86400" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">1 день</button>
             <button type="button" data-seconds="604800" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">7 дней</button>
@@ -47,12 +39,9 @@
             <button type="button" data-seconds="7776000" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">90 дней</button>
             <button type="button" data-seconds="31536000" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">1 год</button>
         </div>
-
         <div id="retention-custom" class="fp-retention-custom rounded-xl p-3">
             <div class="flex flex-wrap items-center gap-2">
-                <button type="button" id="custom-mode-btn" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">
-                    <i class="fa-solid fa-pen-to-square mr-1 text-[10px]"></i>Свой срок
-                </button>
+                <button type="button" id="custom-mode-btn" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">Свой срок</button>
                 <div id="custom-fields" class="hidden flex flex-wrap items-center gap-2">
                     <input type="number" id="custom-value" min="1" value="14" class="fp-retention-input w-20 px-2.5 py-1.5 rounded-lg text-[11px] font-mono">
                     <select id="custom-unit" class="fp-retention-input px-2.5 py-1.5 rounded-lg text-[11px]">
@@ -64,224 +53,211 @@
                 </div>
             </div>
         </div>
+        <p id="retention-summary" class="text-[10px] text-violet-300/70 font-mono"></p>
+    </div>
 
-        <p id="retention-summary" class="text-[10px] text-violet-300/70 font-mono">
-            Удаление через 30 дней без просмотров
-        </p>
+    <!-- Безопасность -->
+    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 space-y-3">
+        <div class="text-sm text-slate-200 font-medium"><i class="fa-solid fa-shield-halved text-violet-400 mr-1 text-xs"></i> Дополнительно</div>
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <div class="text-xs text-slate-300">Режим «Секрет»</div>
+                <div class="text-[10px] text-slate-500">Удалить после первого просмотра</div>
+            </div>
+            <div id="toggle-burn" class="fp-toggle" onclick="burnMode=fpToggle(this)"></div>
+        </div>
+        <div>
+            <label class="text-[10px] text-slate-500 block mb-1">Пароль на ссылку (опционально)</label>
+            <input type="password" id="link-password" placeholder="Второй фактор при открытии" class="fp-text-input w-full px-3 py-2 rounded-lg text-xs" autocomplete="new-password">
+        </div>
     </div>
 
     <button type="button" id="upload-btn" class="fp-btn-primary w-full py-3.5 rounded-xl text-sm font-semibold text-white">
-        <i class="fa-solid fa-lock mr-1"></i>Зашифровать и получить ссылку
+        <i class="fa-solid fa-lock mr-1"></i>Зашифровать и получить ссылки
     </button>
 </div>
 
-<div id="result-block" class="hidden rounded-2xl border border-violet-500/30 bg-violet-950/15 p-5 space-y-4">
+<div id="result-block" class="hidden rounded-2xl border border-violet-500/30 bg-violet-950/15 p-4 sm:p-5 space-y-4">
     <div class="flex items-center gap-2 text-emerald-400 text-sm font-medium">
-        <i class="fa-solid fa-circle-check"></i> Готово — отправь полную ссылку
+        <i class="fa-solid fa-circle-check"></i> <span id="result-title">Готово</span>
     </div>
-    <p class="text-[11px] text-slate-400 leading-relaxed">
-        Короткий путь: <code class="text-violet-300" id="short-path"></code> — без <code>#ключ</code> фото не открыть.
-        Полная ссылка содержит ключ после <code>#</code>.
-    </p>
-    <div class="rounded-xl border border-amber-900/35 bg-amber-950/10 px-3 py-2.5 flex items-start gap-2.5">
-        <i class="fa-solid fa-hourglass-end text-amber-400/80 text-xs mt-0.5"></i>
-        <div class="text-[11px] text-amber-200/90 leading-relaxed" id="result-retention"></div>
-    </div>
-    <div class="rounded-xl border border-violet-900/50 bg-black/40 px-3 py-2.5">
-        <div class="text-[10px] text-slate-500 mb-1">Полная ссылка (с ключом)</div>
-        <input type="text" readonly id="full-url" class="w-full bg-transparent text-[11px] font-mono text-violet-200 outline-none break-all">
-    </div>
-    <div class="flex flex-wrap gap-2">
-        <button type="button" onclick="copyFullUrl()" class="flex-1 min-w-[140px] py-2.5 text-xs border border-violet-500/40 bg-violet-900/30 hover:bg-violet-900/50 rounded-xl text-violet-200">
-            <i class="fa-solid fa-copy mr-1"></i>Скопировать ссылку
-        </button>
-        <button type="button" onclick="resetUpload()" class="py-2.5 px-4 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-400">
-            Ещё фото
-        </button>
-    </div>
+    <div id="result-list" class="space-y-3 max-h-[50vh] overflow-y-auto"></div>
+    <button type="button" id="copy-all-btn" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">
+        <i class="fa-solid fa-copy mr-1"></i>Скопировать все ссылки
+    </button>
+    <button type="button" onclick="resetUpload()" class="w-full py-2.5 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-400">
+        Загрузить ещё
+    </button>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/js/flowphoto-crypto.js"></script>
+<script src="/static/js/flowphoto-upload.js"></script>
 <script>
     const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
     const MIN_RETENTION = {{ min_retention_seconds }};
     const MAX_RETENTION = {{ max_retention_seconds }};
     const DEFAULT_RETENTION = {{ default_retention_seconds }};
 
-    let selectedFile = null;
+    let selectedFiles = [];
     let selectedRetention = DEFAULT_RETENTION;
-    let customMode = false;
+    let burnMode = false;
 
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-    const retentionSummary = document.getElementById('retention-summary');
-    const customFields = document.getElementById('custom-fields');
-    const customValue = document.getElementById('custom-value');
-    const customUnit = document.getElementById('custom-unit');
-    const customModeBtn = document.getElementById('custom-mode-btn');
-    const customBlock = document.getElementById('retention-custom');
 
-    const UNIT_SECONDS = {
-        hours: 3600,
-        days: 86400,
-        weeks: 604800,
-        months: 2592000,
-    };
-
-    function clampRetention(seconds) {
-        return Math.max(MIN_RETENTION, Math.min(MAX_RETENTION, Math.round(seconds)));
+    if (FlowPhotoUpload.getVaultToken()) {
+        document.getElementById('vault-badge').classList.remove('hidden');
     }
+
+    const UNIT_SECONDS = { hours: 3600, days: 86400, weeks: 604800, months: 2592000 };
+
+    function clampRetention(s) { return Math.max(MIN_RETENTION, Math.min(MAX_RETENTION, Math.round(s))); }
 
     function formatRetentionLabel(seconds) {
-        if (seconds % 31536000 === 0 && seconds >= 31536000) return (seconds / 31536000) + ' ' + pluralRu(seconds / 31536000, 'год', 'года', 'лет');
-        if (seconds % 2592000 === 0 && seconds >= 2592000) return (seconds / 2592000) + ' ' + pluralRu(seconds / 2592000, 'месяц', 'месяца', 'месяцев');
-        if (seconds % 604800 === 0 && seconds >= 604800) return (seconds / 604800) + ' ' + pluralRu(seconds / 604800, 'неделю', 'недели', 'недель');
-        if (seconds % 86400 === 0 && seconds >= 86400) return (seconds / 86400) + ' ' + pluralRu(seconds / 86400, 'день', 'дня', 'дней');
-        if (seconds % 3600 === 0 && seconds >= 3600) return (seconds / 3600) + ' ' + pluralRu(seconds / 3600, 'час', 'часа', 'часов');
-        return seconds + ' сек';
-    }
-
-    function pluralRu(n, one, few, many) {
-        const mod10 = n % 10, mod100 = n % 100;
-        if (mod10 === 1 && mod100 !== 11) return one;
-        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
-        return many;
+        if (seconds % 31536000 === 0 && seconds >= 31536000) return (seconds/31536000) + ' лет';
+        if (seconds % 2592000 === 0 && seconds >= 2592000) return (seconds/2592000) + ' мес';
+        if (seconds % 604800 === 0 && seconds >= 604800) return (seconds/604800) + ' нед';
+        if (seconds % 86400 === 0 && seconds >= 86400) return (seconds/86400) + ' дн';
+        return Math.round(seconds/3600) + ' ч';
     }
 
     function updateRetentionSummary() {
-        const label = formatRetentionLabel(selectedRetention);
-        retentionSummary.textContent = 'Удаление через ' + label + ' без просмотров';
+        document.getElementById('retention-summary').textContent =
+            'Удаление через ' + formatRetentionLabel(selectedRetention) + ' без просмотров';
     }
 
     function setPreset(seconds) {
-        customMode = false;
         selectedRetention = clampRetention(seconds);
-        customBlock.classList.remove('active');
-        customModeBtn.classList.remove('active');
-        customFields.classList.add('hidden');
+        document.getElementById('retention-custom').classList.remove('active');
+        document.getElementById('custom-mode-btn').classList.remove('active');
+        document.getElementById('custom-fields').classList.add('hidden');
         document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => {
             btn.classList.toggle('active', Number(btn.dataset.seconds) === selectedRetention);
         });
         updateRetentionSummary();
     }
 
-    function enableCustomMode() {
-        customMode = true;
-        document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => btn.classList.remove('active'));
-        customBlock.classList.add('active');
-        customModeBtn.classList.add('active');
-        customFields.classList.remove('hidden');
-        applyCustomRetention();
-    }
-
-    function applyCustomRetention() {
-        const raw = Math.max(1, parseInt(customValue.value, 10) || 1);
-        customValue.value = raw;
-        const unit = customUnit.value;
-        selectedRetention = clampRetention(raw * UNIT_SECONDS[unit]);
-        updateRetentionSummary();
-    }
-
     document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => {
         btn.addEventListener('click', () => setPreset(Number(btn.dataset.seconds)));
     });
-    customModeBtn.addEventListener('click', enableCustomMode);
-    customValue.addEventListener('input', applyCustomRetention);
-    customUnit.addEventListener('change', applyCustomRetention);
-
-    ['dragenter', 'dragover'].forEach(ev => {
-        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    document.getElementById('custom-mode-btn').addEventListener('click', () => {
+        document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(b => b.classList.remove('active'));
+        document.getElementById('retention-custom').classList.add('active');
+        document.getElementById('custom-mode-btn').classList.add('active');
+        document.getElementById('custom-fields').classList.remove('hidden');
+        const raw = Math.max(1, parseInt(document.getElementById('custom-value').value, 10) || 1);
+        selectedRetention = clampRetention(raw * UNIT_SECONDS[document.getElementById('custom-unit').value]);
+        updateRetentionSummary();
     });
-    ['dragleave', 'drop'].forEach(ev => {
-        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-    });
-    dropZone.addEventListener('drop', e => {
-        const f = e.dataTransfer?.files?.[0];
-        if (f) handleFile(f);
-    });
-    fileInput.addEventListener('change', e => {
-        const f = e.target.files?.[0];
-        if (f) handleFile(f);
-        e.target.value = '';
+    ['custom-value','custom-unit'].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            const raw = Math.max(1, parseInt(document.getElementById('custom-value').value, 10) || 1);
+            selectedRetention = clampRetention(raw * UNIT_SECONDS[document.getElementById('custom-unit').value]);
+            updateRetentionSummary();
+        });
+        document.getElementById(id).addEventListener('change', () => document.getElementById('custom-mode-btn').click());
     });
 
-    function handleFile(file) {
-        if (!file.type.startsWith('image/')) {
-            showToast('Нужен файл изображения');
-            return;
+    function addFiles(fileList) {
+        const incoming = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+        if (!incoming.length) { showToast('Нужны изображения'); return; }
+        for (const f of incoming) {
+            if (f.size > MAX_BYTES) { showToast(f.name + ' — больше {{ max_mb }} МБ'); continue; }
+            if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
         }
-        if (file.size > MAX_BYTES) {
-            showToast('Максимум {{ max_mb }} МБ');
-            return;
-        }
-        selectedFile = file;
-        const url = URL.createObjectURL(file);
-        document.getElementById('preview-img').src = url;
-        document.getElementById('meta-report').innerHTML =
-            `Файл: ${file.name}<br>Размер: ${(file.size / 1024).toFixed(1)} КБ<br>Тип: ${file.type}`;
-        document.getElementById('preview-block').classList.remove('hidden');
-        document.getElementById('result-block').classList.add('hidden');
+        renderPreviews();
     }
 
-    function formatExpiresAt(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        return d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    function renderPreviews() {
+        const grid = document.getElementById('preview-grid');
+        grid.innerHTML = '';
+        selectedFiles.forEach((f, i) => {
+            const div = document.createElement('div');
+            div.className = 'rounded-xl border border-violet-950/80 bg-black/40 p-2 relative';
+            div.innerHTML = `<img src="${URL.createObjectURL(f)}" class="rounded-lg w-full h-24 object-cover" alt="">
+                <div class="text-[9px] text-slate-500 truncate mt-1">${f.name}</div>
+                <button type="button" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-slate-400 text-xs" data-i="${i}">×</button>`;
+            div.querySelector('button').onclick = (e) => {
+                selectedFiles.splice(Number(e.target.dataset.i), 1);
+                renderPreviews();
+            };
+            grid.appendChild(div);
+        });
+        document.getElementById('preview-block').classList.toggle('hidden', !selectedFiles.length);
+        document.getElementById('result-block').classList.add('hidden');
+        if (!selectedFiles.length) document.getElementById('drop-zone').classList.remove('hidden');
+    }
+
+    ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+    dropZone.addEventListener('drop', e => addFiles(e.dataTransfer?.files));
+    fileInput.addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+
+    function buildResultCard(data, idx) {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-violet-900/50 bg-black/40 p-3 space-y-2';
+        const flags = [];
+        if (data.burn_after_read) flags.push('<span class="text-amber-400">секрет</span>');
+        if (data.has_link_password) flags.push('<span class="text-violet-300">+пароль</span>');
+        card.innerHTML = `
+            <div class="text-[10px] text-slate-400 truncate">${data.fileName} ${flags.length ? '· ' + flags.join(' ') : ''}</div>
+            <input type="text" readonly value="${data.fullUrl}" class="result-url w-full bg-transparent text-[10px] font-mono text-violet-200 outline-none break-all">
+            <div class="flex flex-wrap gap-2 items-center">
+                <button type="button" class="copy-one py-1.5 px-3 text-[10px] border border-violet-500/40 rounded-lg text-violet-200">Копировать</button>
+                <div class="qr-wrap rounded-lg bg-black/30 p-1"><canvas class="qr-canvas"></canvas></div>
+            </div>`;
+        card.querySelector('.copy-one').onclick = () => {
+            navigator.clipboard.writeText(data.fullUrl).then(() => showToast('Скопировано'));
+        };
+        FlowPhotoUpload.renderQr(card.querySelector('.qr-canvas'), data.fullUrl);
+        return card;
     }
 
     document.getElementById('upload-btn').addEventListener('click', async () => {
-        if (!selectedFile) return;
+        if (!selectedFiles.length) return;
         const btn = document.getElementById('upload-btn');
         btn.disabled = true;
         const prev = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Шифруем и загружаем…';
+        const linkPwd = document.getElementById('link-password').value;
+        const results = [];
         try {
-            const { blob, mime } = await FlowPhotoCrypto.stripImageMetadata(selectedFile);
-            const { payload, keyBytes } = await FlowPhotoCrypto.encryptBlob(blob);
-            const form = new FormData();
-            form.append('encrypted_file', new Blob([payload], { type: 'application/octet-stream' }), 'encrypted.bin');
-            form.append('mime_type', mime);
-            form.append('original_name', selectedFile.name);
-            form.append('retention_seconds', String(selectedRetention));
-
-            const res = await fetch('/upload', { method: 'POST', body: form });
-            const data = await res.json();
-            if (!res.ok) {
-                const d = data.detail;
-                throw new Error(typeof d === 'string' ? d : (Array.isArray(d) ? d.map(x => x.msg).join(', ') : 'Ошибка загрузки'));
+            for (let i = 0; i < selectedFiles.length; i++) {
+                btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>${i+1} / ${selectedFiles.length}…`;
+                const r = await FlowPhotoUpload.uploadEncryptedFile(selectedFiles[i], {
+                    retentionSeconds: selectedRetention,
+                    burnAfterRead: burnMode,
+                    linkPassword: linkPwd,
+                });
+                results.push(r);
             }
-
-            const fullUrl = FlowPhotoCrypto.buildFullViewUrl(data.short_id, keyBytes);
-            const label = formatRetentionLabel(data.retention_seconds);
-            document.getElementById('short-path').textContent = '/view/' + data.short_id;
-            document.getElementById('full-url').value = fullUrl;
-            document.getElementById('result-retention').innerHTML =
-                `<strong>Хранится ${label}</strong> без просмотров. ` +
-                `Каждый раз, когда кто-то откроет ссылку, таймер сбросится. ` +
-                `Сейчас удалится не позже <span class="font-mono text-amber-100/80">${formatExpiresAt(data.expires_at)}</span>.`;
+            document.getElementById('result-title').textContent =
+                results.length === 1 ? 'Ссылка готова' : `Готово — ${results.length} ссылок`;
+            const list = document.getElementById('result-list');
+            list.innerHTML = '';
+            results.forEach((r, i) => list.appendChild(buildResultCard(r, i)));
             document.getElementById('result-block').classList.remove('hidden');
-            showToast('Ссылка готова — скопируй и отправь');
+            document.getElementById('preview-block').classList.add('hidden');
+            showToast('Готово — отправь ссылки');
         } catch (e) {
-            console.error(e);
-            showToast(e.message || 'Не удалось загрузить');
+            showToast(e.message || 'Ошибка');
         } finally {
             btn.disabled = false;
             btn.innerHTML = prev;
         }
     });
 
-    function copyFullUrl() {
-        const url = document.getElementById('full-url').value;
-        navigator.clipboard.writeText(url).then(() => showToast('Ссылка скопирована'));
-    }
+    document.getElementById('copy-all-btn').addEventListener('click', () => {
+        const urls = [...document.querySelectorAll('.result-url')].map(el => el.value).join('\n');
+        navigator.clipboard.writeText(urls).then(() => showToast('Все ссылки скопированы'));
+    });
 
     function resetUpload() {
-        selectedFile = null;
+        selectedFiles = [];
         document.getElementById('preview-block').classList.add('hidden');
         document.getElementById('result-block').classList.add('hidden');
-        document.getElementById('preview-img').removeAttribute('src');
+        document.getElementById('drop-zone').classList.remove('hidden');
     }
 
     setPreset(DEFAULT_RETENTION);

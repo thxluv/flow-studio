@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}FlowPhoto — Просмотр{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+{% endblock %}
 
 {% block content %}
-<div id="state-loading" class="rounded-2xl border border-violet-950/80 bg-black/40 p-12 text-center">
+<div id="state-loading" class="rounded-2xl border border-violet-950/80 bg-black/40 p-10 sm:p-12 text-center">
     <i class="fa-solid fa-circle-notch fa-spin text-violet-400 text-2xl mb-3"></i>
     <p class="text-sm text-slate-400">Расшифровка в браузере…</p>
 </div>
@@ -12,92 +15,194 @@
     <h2 class="font-display text-lg">Нужна полная ссылка</h2>
     <p class="text-sm text-slate-400 max-w-md mx-auto">
         Путь <code class="text-violet-300">/view/{{ short_id }}</code> без ключа не раскрывает фото.
-        Попроси отправителя ссылку с фрагментом <code class="text-violet-300">#...</code> в конце.
+        Попроси ссылку с <code class="text-violet-300">#...</code> в конце.
     </p>
+</div>
+
+<div id="state-password" class="hidden rounded-2xl border border-violet-900/40 bg-violet-950/15 p-6 space-y-4 max-w-md mx-auto">
+    <div class="text-center">
+        <i class="fa-solid fa-lock text-violet-400 text-2xl mb-2"></i>
+        <h2 class="font-display text-lg">Пароль ссылки</h2>
+        <p class="text-xs text-slate-500 mt-1">Отправитель защитил фото дополнительным паролем</p>
+    </div>
+    <input type="password" id="link-password-input" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Введи пароль" autocomplete="current-password">
+    <button type="button" id="password-submit" class="fp-btn-primary w-full py-3 rounded-xl text-sm text-white font-medium">Открыть фото</button>
 </div>
 
 <div id="state-error" class="hidden rounded-2xl border border-red-900/40 bg-red-950/15 p-6 text-center space-y-3">
     <i class="fa-solid fa-hourglass-end text-red-400/70 text-2xl"></i>
     <p class="text-sm text-red-300" id="error-text"></p>
+    <a href="/" class="inline-block text-xs text-violet-400 hover:text-violet-200 mt-2">Загрузить своё фото</a>
 </div>
 
 <div id="state-done" class="hidden space-y-4">
+    {% if photo.burn_after_read %}
+    <div class="rounded-xl border border-amber-900/40 bg-amber-950/15 px-3 py-2 text-[11px] text-amber-200/90">
+        <i class="fa-solid fa-fire-flame-curved mr-1"></i> Режим «Секрет» — после этого просмотра ссылка сгорит
+    </div>
+    {% endif %}
+
     <div class="rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-4 sm:p-6">
         <div class="text-[10px] text-emerald-400/80 font-mono mb-3 uppercase tracking-wider">Расшифровано локально</div>
         <div class="flex justify-center">
-            <img id="view-img" alt="Фото" class="rounded-xl max-h-[75vh] max-w-full object-contain shadow-2xl">
+            <img id="view-img" alt="Фото" class="rounded-xl max-h-[65vh] sm:max-h-[75vh] max-w-full object-contain shadow-2xl">
         </div>
-        <div class="mt-4 text-[10px] text-slate-500 font-mono space-y-0.5" id="view-meta">
-            ID: {{ short_id }}<br>
-            Файл: {{ photo.original_name }}<br>
-            Загружено: {{ photo.created_at[:19].replace('T', ' ') }} UTC<br>
-            Удалится без просмотров: <span class="text-amber-300/80">{{ photo.expires_at[:19].replace('T', ' ') }} UTC</span>
+        <div class="mt-4 text-[10px] text-slate-500 font-mono space-y-0.5" id="view-meta"></div>
+        <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" id="btn-copy-link" class="py-2 px-3 text-[10px] border border-violet-500/40 rounded-lg text-violet-200">
+                <i class="fa-solid fa-copy mr-1"></i>Ссылка
+            </button>
+            <button type="button" id="btn-share" class="py-2 px-3 text-[10px] border border-violet-500/40 rounded-lg text-violet-200 sm:hidden">
+                <i class="fa-solid fa-share-nodes mr-1"></i>Поделиться
+            </button>
+            <div class="rounded-lg bg-black/30 p-1.5 hidden sm:block"><canvas id="qr-canvas"></canvas></div>
         </div>
     </div>
-    <p class="text-[10px] text-slate-600 text-center font-mono">
-        Просмотр обновил таймер хранения — фото останется, пока ссылкой пользуются
-    </p>
+
+    <!-- Ответить фото -->
+    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-3">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-reply text-violet-400"></i>
+            <span class="text-sm font-medium text-slate-200">Ответить фото</span>
+        </div>
+        <p class="text-[11px] text-slate-500">Загрузи своё — получишь новую зашифрованную ссылку</p>
+        <input type="file" id="reply-file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+        <button type="button" onclick="document.getElementById('reply-file').click()" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">
+            <i class="fa-solid fa-camera mr-1"></i>Выбрать фото
+        </button>
+        <div id="reply-result" class="hidden space-y-2">
+            <input type="text" readonly id="reply-url" class="fp-text-input w-full px-3 py-2 rounded-lg text-[10px] font-mono">
+            <button type="button" id="reply-copy" class="w-full py-2 text-[10px] border border-violet-500/40 rounded-lg text-violet-200">Скопировать ссылку ответа</button>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/js/flowphoto-crypto.js"></script>
+<script src="/static/js/flowphoto-upload.js"></script>
 <script>
     const SHORT_ID = {{ short_id | tojson }};
     const MIME_TYPE = {{ photo.mime_type | tojson }};
     const ORIGINAL_NAME = {{ photo.original_name | tojson }};
     const CREATED_AT = {{ photo.created_at[:19].replace('T', ' ') | tojson }};
+    const HAS_LINK_PASSWORD = {{ photo.has_link_password | tojson }};
+    const BURN_AFTER_READ = {{ photo.burn_after_read | tojson }};
+    const INITIAL_VIEW_COUNT = {{ photo.view_count | default(0) }};
+
+    let linkPassword = '';
 
     function showState(name) {
-        ['loading', 'no-key', 'error', 'done'].forEach(s => {
+        ['loading','no-key','password','error','done'].forEach(s => {
             document.getElementById('state-' + s)?.classList.toggle('hidden', s !== name);
         });
     }
 
+    async function fetchRaw() {
+        const opts = { cache: 'no-store' };
+        if (HAS_LINK_PASSWORD) {
+            const form = new FormData();
+            form.append('link_password', linkPassword);
+            const res = await fetch('/raw/' + SHORT_ID, { method: 'POST', body: form, cache: 'no-store' });
+            return res;
+        }
+        return fetch('/raw/' + SHORT_ID, opts);
+    }
+
     async function decryptAndShow() {
         const keyB64 = FlowPhotoCrypto.getKeyFromHash();
-        if (!keyB64) {
-            showState('no-key');
+        if (!keyB64) { showState('no-key'); return; }
+
+        if (HAS_LINK_PASSWORD && !linkPassword) {
+            showState('password');
             return;
         }
 
         showState('loading');
         try {
-            const res = await fetch('/raw/' + SHORT_ID, { cache: 'no-store' });
-            if (res.status === 404) {
-                throw new Error('Фото не найдено или срок хранения истёк');
+            const res = await fetchRaw();
+            if (res.status === 403) {
+                linkPassword = '';
+                document.getElementById('error-text').textContent = 'Неверный пароль ссылки';
+                showState('error');
+                return;
             }
+            if (res.status === 429) throw new Error('Слишком много запросов — подожди минуту');
+            if (res.status === 404) throw new Error('Фото не найдено или срок хранения истёк');
             if (!res.ok) throw new Error('Файл не найден на сервере');
+
             const buf = await res.arrayBuffer();
             const plain = await FlowPhotoCrypto.decryptPayload(buf, keyB64);
             const blob = new Blob([plain], { type: MIME_TYPE });
             document.getElementById('view-img').src = URL.createObjectURL(blob);
+
+            let metaHtml = `ID: ${SHORT_ID}<br>Файл: ${ORIGINAL_NAME}<br>Загружено: ${CREATED_AT} UTC`;
             try {
                 const infoRes = await fetch('/info/' + SHORT_ID, { cache: 'no-store' });
                 if (infoRes.ok) {
                     const info = await infoRes.json();
                     const exp = (info.expires_at || '').slice(0, 19).replace('T', ' ');
-                    if (exp) {
-                        document.getElementById('view-meta').innerHTML =
-                            `ID: ${SHORT_ID}<br>` +
-                            `Файл: ${ORIGINAL_NAME}<br>` +
-                            `Загружено: ${CREATED_AT} UTC<br>` +
-                            `Удалится без просмотров: <span class="text-amber-300/80">${exp} UTC</span>`;
-                    }
+                    metaHtml += `<br>Просмотров: <span class="text-violet-300/80">${info.view_count}</span>`;
+                    if (exp && !BURN_AFTER_READ) metaHtml += `<br>Удалится: <span class="text-amber-300/80">${exp} UTC</span>`;
+                } else {
+                    metaHtml += `<br>Просмотров: <span class="text-violet-300/80">${INITIAL_VIEW_COUNT + 1}</span>`;
                 }
-            } catch (_) {}
+            } catch (_) {
+                metaHtml += `<br>Просмотров: ${INITIAL_VIEW_COUNT + 1}`;
+            }
+            document.getElementById('view-meta').innerHTML = metaHtml;
+
+            const fullUrl = location.href.split('#')[0] + '#' + keyB64;
+            document.getElementById('btn-copy-link').onclick = () => {
+                navigator.clipboard.writeText(fullUrl).then(() => showToast('Ссылка скопирована'));
+            };
+            document.getElementById('btn-share').onclick = async () => {
+                if (navigator.share) {
+                    try { await navigator.share({ title: 'FlowPhoto', url: fullUrl }); } catch (_) {}
+                } else {
+                    navigator.clipboard.writeText(fullUrl).then(() => showToast('Ссылка скопирована'));
+                }
+            };
+            if (window.innerWidth >= 640) FlowPhotoUpload.renderQr('qr-canvas', fullUrl);
+
             showState('done');
         } catch (e) {
-            console.error(e);
             const expired = /истёк|не найдено/i.test(e.message || '');
-            document.getElementById('error-text').textContent =
-                expired ? 'Срок хранения истёк — фото удалено с сервера'
-                    : (e.message?.includes('decrypt') || e.name === 'OperationError'
-                        ? 'Неверный ключ в ссылке или повреждённый файл'
-                        : (e.message || 'Ошибка расшифровки'));
+            document.getElementById('error-text').textContent = expired
+                ? 'Срок хранения истёк — фото удалено'
+                : (e.message?.includes('decrypt') || e.name === 'OperationError'
+                    ? 'Неверный ключ в ссылке'
+                    : (e.message || 'Ошибка'));
             showState('error');
         }
     }
+
+    document.getElementById('password-submit')?.addEventListener('click', () => {
+        linkPassword = document.getElementById('link-password-input').value;
+        if (!linkPassword) { showToast('Введи пароль'); return; }
+        decryptAndShow();
+    });
+    document.getElementById('link-password-input')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('password-submit').click();
+    });
+
+    document.getElementById('reply-file').addEventListener('change', async e => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        try {
+            showToast('Загружаем…');
+            const r = await FlowPhotoUpload.uploadEncryptedFile(f, { retentionSeconds: 2592000 });
+            document.getElementById('reply-url').value = r.fullUrl;
+            document.getElementById('reply-result').classList.remove('hidden');
+            document.getElementById('reply-copy').onclick = () => {
+                navigator.clipboard.writeText(r.fullUrl).then(() => showToast('Ссылка ответа скопирована'));
+            };
+            showToast('Фото ответа готово');
+        } catch (err) {
+            showToast(err.message || 'Не удалось загрузить');
+        }
+    });
 
     window.addEventListener('hashchange', decryptAndShow);
     decryptAndShow();
