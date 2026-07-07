@@ -25,8 +25,9 @@ services:
         value: "60"
       - key: PORT
         value: "8000"
-      # Секреты задай в Render Dashboard → Environment:
-      # FLOWPHOTO_VAULT_SECRET — случайная строка 32+ символов
+      - key: FLOWPHOTO_VAULT_SECRET
+        generateValue: true
+      # Доп. секреты задай в Render Dashboard → Environment:
       # FLOWPHOTO_BACKUP_BUCKET, FLOWPHOTO_BACKUP_ACCESS_KEY, FLOWPHOTO_BACKUP_SECRET_KEY
       # FLOWPHOTO_BACKUP_ENDPOINT — для R2: https://<accountid>.r2.cloudflarestorage.com
       # FLOWPHOTO_BACKUP_PREFIX — flowphoto

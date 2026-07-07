@@ -1,14 +1,6 @@
 (function (global) {
     'use strict';
 
-    async function checkPasswordExists(password) {
-        const form = new FormData();
-        form.append('password', password);
-        const res = await fetch('/api/vault/check', { method: 'POST', body: form });
-        const data = await res.json();
-        return !!data.exists;
-    }
-
     async function vaultLogin(password, intent) {
         const form = new FormData();
         form.append('password', password);
@@ -93,7 +85,6 @@
     }
 
     global.FlowPhotoVault = {
-        checkPasswordExists,
         vaultLogin,
         vaultFetchPhotos,
         vaultDeletePhoto,

@@ -35,7 +35,7 @@ from app.database import (
 )
 from app.ids import generate_short_id, is_valid_short_id
 from app.rate_limit import client_ip, is_rate_limited
-from app.security import hash_secret
+from app.security import ensure_vault_secret_configured, hash_secret
 from app import vault as vault_mod
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -167,6 +167,7 @@ async def _periodic_tasks() -> None:
 
 @app.on_event("startup")
 async def on_startup() -> None:
+    ensure_vault_secret_configured()
     init_db()
     cleanup_expired_photos()
     cleanup_storage_overflow()
@@ -313,13 +314,6 @@ def _raw_response(blob: bytes | None, err: str | None) -> Response:
         media_type="application/octet-stream",
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
     )
-
-
-@app.post("/api/vault/check")
-async def vault_check_password(password: str = Form(...)):
-    if len(password.strip()) < 4:
-        return {"exists": False}
-    return {"exists": vault_mod.password_exists(password.strip())}
 
 
 @app.post("/api/vault/login")

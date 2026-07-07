@@ -16,25 +16,6 @@
     <span id="vault-disclaimer-text"></span>
 </div>
 
-<!-- Модал: занятый пароль -->
-<div id="vault-warn-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
-    <div class="rounded-2xl border border-amber-900/50 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
-        <div class="flex items-start gap-3">
-            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
-            <div>
-                <h3 class="font-display text-base text-amber-100">Пароль уже используется</h3>
-                <p class="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Вы войдёте в существующий FlowVault. Чужие фото не откроются — ключ <code class="text-violet-300">#...</code> только у загрузившего.
-                </p>
-            </div>
-        </div>
-        <div class="flex flex-col sm:flex-row gap-2">
-            <button type="button" id="warn-confirm" class="fp-btn-primary flex-1 py-2.5 rounded-xl text-xs text-white">Войти всё равно</button>
-            <button type="button" id="warn-cancel" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
-        </div>
-    </div>
-</div>
-
 <!-- Модал: бэкап -->
 <div id="vault-backup-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
     <div class="rounded-2xl border border-violet-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
@@ -181,8 +162,6 @@
 <script src="/static/js/flowphoto-vault-backup.js"></script>
 <script>
     const listEl = document.getElementById('vault-list');
-    let pendingPassword = '';
-    let pendingIntent = 'login';
     let currentPhotos = [];
     let selectedIds = new Set();
     let isOwner = false;
@@ -493,28 +472,13 @@
     document.getElementById('vault-login-btn').addEventListener('click', async () => {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
-        try {
-            if (await FlowPhotoVault.checkPasswordExists(pwd)) {
-                pendingPassword = pwd; pendingIntent = 'login';
-                document.getElementById('vault-warn-modal').classList.remove('hidden');
-                return;
-            }
-            await doLogin(pwd, 'login');
-        } catch (e) { showToast(e.message); }
+        try { await doLogin(pwd, 'login'); } catch (e) { showToast(e.message); }
     });
     document.getElementById('vault-create-btn').addEventListener('click', async () => {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
         try { await doLogin(pwd, 'create'); } catch (e) { showToast(e.message); }
     });
-    document.getElementById('warn-confirm').addEventListener('click', async () => {
-        document.getElementById('vault-warn-modal').classList.add('hidden');
-        try { await doLogin(pendingPassword, pendingIntent); } catch (e) { showToast(e.message); }
-    });
-    document.getElementById('warn-cancel').addEventListener('click', () => {
-        document.getElementById('vault-warn-modal').classList.add('hidden');
-    });
-
     document.getElementById('vault-logout').addEventListener('click', () => {
         FlowPhotoUpload.clearVaultSession();
         selectedIds.clear();

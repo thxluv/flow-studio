@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://flowphoto.onrender.com http://127.0.0.1:8000; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>FlowNote Studio • Инструменты для потока</title>
     <meta name="description" content="FlowNote Studio — заметки, идеи, утилиты. FlowPhoto — приватный обмен фото.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230d9488' rx='22' width='100' height='100'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='system-ui'>∞</text></svg>">
@@ -1924,6 +1925,16 @@
             openCommandPalette();
         }
 
+        function escapeHtml(value) {
+            if (value == null) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // ==================== SECURITY & ENCRYPTED STORAGE ====================
         const SECURITY_STORE_KEY = 'flownote_security_v2';
         const RECOVERY_WORDS = [
@@ -2852,27 +2863,29 @@
                 return;
             }
             
-            container.innerHTML = notes.map(note => `
+            container.innerHTML = notes.map(note => {
+                const preview = note.content.substring(0, 140) + (note.content.length > 140 ? '...' : '');
+                return `
                 <div class="flex justify-between items-start border border-slate-700 hover:border-slate-600 bg-slate-900/70 rounded-2xl px-4 py-3 group">
                     <div class="flex-1 min-w-0 pr-4">
-                        <div class="text-sm line-clamp-2">${note.content.substring(0, 140)}${note.content.length > 140 ? '...' : ''}</div>
+                        <div class="text-sm line-clamp-2">${escapeHtml(preview)}</div>
                         <div class="flex items-center gap-x-3 mt-1.5 text-[10px] text-slate-500 flex-wrap">
                             <span class="flex items-center gap-x-1">
                                 <i class="fa-regular fa-clock text-[9px] text-teal-400/70"></i>
-                                ${formatNoteDateTime(note.modified || note.created)}
+                                ${escapeHtml(formatNoteDateTime(note.modified || note.created))}
                             </span>
-                            <span>${note.wordCount} слов</span>
+                            <span>${escapeHtml(String(note.wordCount))} слов</span>
                             ${formatDestructBadge(note)}
                         </div>
                     </div>
                     <div class="flex gap-x-1 opacity-70 group-hover:opacity-100">
-                        <button onclick="loadNoteToEditor(${note.id}); event.stopImmediatePropagation()"
+                        <button onclick="loadNoteToEditor(${Number(note.id)}); event.stopImmediatePropagation()"
                                 class="px-2.5 py-1 text-xs hover:bg-slate-700 rounded-lg transition-colors">Открыть</button>
-                        <button onclick="deleteNote(${note.id}); event.stopImmediatePropagation()" 
+                        <button onclick="deleteNote(${Number(note.id)}); event.stopImmediatePropagation()" 
                                 class="px-2 py-1 text-xs text-red-400 hover:bg-red-900/30 rounded-lg transition-colors">×</button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         function loadNoteToEditor(id) {
@@ -3212,7 +3225,7 @@
             
             // Show result
             document.getElementById('idea-result').classList.remove('hidden');
-            document.getElementById('idea-text').innerHTML = randomPrompt;
+            document.getElementById('idea-text').textContent = randomPrompt;
             
             const badge = document.getElementById('idea-category-badge');
             badge.textContent = selectedCategory.toUpperCase();
@@ -3290,16 +3303,16 @@
             container.innerHTML = ideas.map(idea => `
                 <div class="border border-slate-700 hover:border-slate-600 bg-slate-900/60 rounded-2xl p-4 text-sm group">
                     <div class="flex justify-between items-start gap-2">
-                        <div class="text-amber-400 text-xs font-medium tracking-wider">${(idea.category || 'idea').toUpperCase()}</div>
-                        <button onclick="deleteSavedIdea(${idea.id}); event.stopImmediatePropagation()" class="opacity-40 hover:opacity-100 text-red-400 text-xs shrink-0">×</button>
+                        <div class="text-amber-400 text-xs font-medium tracking-wider">${escapeHtml((idea.category || 'idea').toUpperCase())}</div>
+                        <button onclick="deleteSavedIdea(${Number(idea.id)}); event.stopImmediatePropagation()" class="opacity-40 hover:opacity-100 text-red-400 text-xs shrink-0">×</button>
                     </div>
-                    <div class="mt-2 leading-snug line-clamp-4">${idea.text}</div>
+                    <div class="mt-2 leading-snug line-clamp-4">${escapeHtml(idea.text)}</div>
                     <div class="flex items-center gap-x-3 mt-2 text-[10px] text-slate-500 flex-wrap">
                         ${formatDestructBadge(idea)}
                     </div>
                     <div class="flex gap-x-2 mt-3">
-                        <button onclick="useIdeaInFlowNote(${idea.id})" class="text-xs flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors">В FlowNote</button>
-                        <button onclick="copyIdea(${idea.id})" class="text-xs px-4 py-1.5 border border-slate-600 hover:bg-slate-800 rounded-xl transition-colors">Копировать</button>
+                        <button onclick="useIdeaInFlowNote(${Number(idea.id)})" class="text-xs flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors">В FlowNote</button>
+                        <button onclick="copyIdea(${Number(idea.id)})" class="text-xs px-4 py-1.5 border border-slate-600 hover:bg-slate-800 rounded-xl transition-colors">Копировать</button>
                     </div>
                 </div>
             `).join('');

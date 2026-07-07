@@ -26,7 +26,16 @@ cd "путь\к\проект флов\flowphoto-server"
 python -m pip install -r requirements.txt
 ```
 
-### 3. Запуск
+### 3. Секрет FlowVault (обязательно)
+
+```powershell
+# PowerShell — случайная строка ≥32 символов
+$env:FLOWPHOTO_VAULT_SECRET = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object {[char]$_})
+```
+
+Без `FLOWPHOTO_VAULT_SECRET` сервер **не запустится**. На Render задаётся в Environment (или `generateValue` в `render.yaml`).
+
+### 4. Запуск
 
 ```powershell
 cd flowphoto-server
@@ -35,7 +44,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 Открой: **http://127.0.0.1:8000/**
 
-### 4. FlowNote Studio
+### 5. FlowNote Studio
 
 Статический FlowNote: https://thxluv.github.io/flow-studio/  
 FlowPhoto: запускается локально или на VPS с HTTPS.

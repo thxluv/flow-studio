@@ -38,6 +38,11 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 Внутренние планы и скрипты разработки — в папке [`archive/`](archive/). На работу сайта не влияют.
 
+## Юридические документы
+
+- [privacy.html](privacy.html) — Политика конфиденциальности
+- [terms.html](terms.html) — Условия использования
+
 ## Безопасность
 
 См. [archive/AUDIT-REPORT.md](archive/AUDIT-REPORT.md) — аудит перед публичным запуском.

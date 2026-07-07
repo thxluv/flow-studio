@@ -11,11 +11,38 @@ from typing import Any
 
 _PBKDF2_ITERATIONS = 600_000
 _TOKEN_TTL_SECONDS = 30 * 24 * 3600  # 30 дней
+_FORBIDDEN_VAULT_SECRET = "flowphoto-dev-change-me-in-production"
+_MIN_VAULT_SECRET_LEN = 32
+
+_vault_secret_cache: bytes | None = None
+
+
+def ensure_vault_secret_configured() -> None:
+    """Вызывается при старте приложения. Падает, если секрет не задан или небезопасен."""
+    _resolve_vault_secret()
+
+
+def _resolve_vault_secret() -> bytes:
+    global _vault_secret_cache
+    if _vault_secret_cache is not None:
+        return _vault_secret_cache
+    raw = (os.environ.get("FLOWPHOTO_VAULT_SECRET") or "").strip()
+    if not raw or raw == _FORBIDDEN_VAULT_SECRET:
+        raise RuntimeError(
+            "FLOWPHOTO_VAULT_SECRET не задан или равен небезопасному значению по умолчанию. "
+            "Укажите случайную строку ≥32 символов в переменных окружения."
+        )
+    if len(raw) < _MIN_VAULT_SECRET_LEN:
+        raise RuntimeError(
+            f"FLOWPHOTO_VAULT_SECRET слишком короткий ({len(raw)} символов). "
+            f"Минимум {_MIN_VAULT_SECRET_LEN}."
+        )
+    _vault_secret_cache = raw.encode("utf-8")
+    return _vault_secret_cache
 
 
 def _vault_secret() -> bytes:
-    raw = os.environ.get("FLOWPHOTO_VAULT_SECRET", "flowphoto-dev-change-me-in-production")
-    return raw.encode("utf-8")
+    return _resolve_vault_secret()
 
 
 def hash_secret(value: str) -> str:
