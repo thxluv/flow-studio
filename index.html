@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowNote Studio • Инструменты для потока</title>
+    <meta name="description" content="FlowNote Studio — заметки, идеи, утилиты. FlowPhoto — приватный обмен фото.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230d9488' rx='22' width='100' height='100'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='system-ui'>∞</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -573,9 +575,46 @@
                 right: 12px;
                 width: auto;
                 max-height: 70vh;
-                bottom: 12px;
+                bottom: 72px;
                 top: auto;
             }
+        }
+
+        #calc-panel.calc-size-s { width: min(300px, calc(100vw - 24px)) !important; }
+        #calc-panel.calc-size-m { width: min(400px, calc(100vw - 24px)) !important; }
+        #calc-panel.calc-size-l { width: min(540px, calc(100vw - 24px)) !important; }
+
+        .calc-size-btn-active {
+            background-color: rgba(45, 212, 191, 0.2) !important;
+            color: #5eead4 !important;
+        }
+
+        .calc-resize-handle {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 18px;
+            height: 18px;
+            cursor: nwse-resize;
+            opacity: 0.35;
+            z-index: 5;
+        }
+
+        .calc-resize-handle:hover { opacity: 0.7; }
+
+        #mobile-drawer.open { transform: translateX(0); }
+        #mobile-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        .mobile-bottom-nav {
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .mobile-nav-item.mobile-nav-active {
+            color: #2dd4bf;
+        }
+
+        .mobile-nav-item.mobile-nav-active i {
+            transform: scale(1.08);
         }
     </style>
 </head>
@@ -713,21 +752,24 @@
     <!-- Navbar -->
     <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg sticky top-0 z-50">
         <div class="max-w-screen-2xl mx-auto">
-            <div class="px-8 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-x-3">
+            <div class="px-4 sm:px-8 py-3 sm:py-4 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-x-2 sm:gap-x-3 min-w-0">
+                    <button type="button" id="mobile-menu-btn" onclick="toggleMobileDrawer()" class="lg:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-2xl hover:bg-slate-800 text-slate-400" aria-label="Меню">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </button>
                     <!-- Logo -->
-                    <div class="flex items-center gap-x-2.5">
+                    <div class="flex items-center gap-x-2.5 min-w-0">
                         <div class="w-9 h-9 bg-teal-600 rounded-2xl flex items-center justify-center">
                             <i class="fa-solid fa-infinity text-white text-2xl"></i>
                         </div>
                         <div>
-                            <span class="font-display text-2xl font-semibold tracking-tighter">FlowNote</span>
-                            <span class="text-teal-400 text-sm font-medium">Studio</span>
+                            <span class="font-display text-xl sm:text-2xl font-semibold tracking-tighter truncate">FlowNote</span>
+                            <span class="text-teal-400 text-xs sm:text-sm font-medium hidden xs:inline">Studio</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-x-2">
+                <div class="flex items-center gap-x-1 sm:gap-x-2 shrink-0">
                     <!-- Quick Theme Toggle -->
                     <button onclick="toggleTheme()" 
                             class="w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
@@ -737,8 +779,12 @@
                     </button>
 
                     <!-- Support Button -->
+                    <a href="flowphoto.html" class="lg:hidden w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-800 text-violet-400" title="FlowPhoto">
+                        <i class="fa-solid fa-eye-low-vision text-lg"></i>
+                    </a>
+
                     <a href="https://ko-fi.com/flownote" target="_blank"
-                       class="px-4 py-2 text-sm font-medium flex items-center gap-x-2 rounded-2xl border border-slate-700 hover:bg-slate-800 transition-colors">
+                       class="hidden md:flex px-4 py-2 text-sm font-medium items-center gap-x-2 rounded-2xl border border-slate-700 hover:bg-slate-800 transition-colors">
                         <i class="fa-solid fa-heart text-rose-400"></i>
                         <span>Поддержать</span>
                     </a>
@@ -774,14 +820,35 @@
 
                     <!-- Pro Button -->
                     <button onclick="showProModal()"
-                            class="px-5 py-2 bg-white text-slate-900 hover:bg-amber-100 transition-all font-semibold text-sm rounded-2xl flex items-center gap-x-2 shadow-sm">
+                            class="hidden sm:flex px-4 sm:px-5 py-2 bg-white text-slate-900 hover:bg-amber-100 transition-all font-semibold text-sm rounded-2xl items-center gap-x-2 shadow-sm">
                         <i class="fa-solid fa-rocket"></i>
-                        <span>Pro</span>
+                        <span class="hidden sm:inline">Pro</span>
                     </button>
                 </div>
             </div>
         </div>
     </nav>
+
+    <!-- Mobile drawer -->
+    <div id="mobile-drawer-backdrop" onclick="closeMobileDrawer()" class="lg:hidden fixed inset-0 bg-black/60 z-[180] opacity-0 pointer-events-none transition-opacity"></div>
+    <aside id="mobile-drawer" class="lg:hidden fixed top-0 left-0 h-full w-[min(300px,85vw)] z-[190] bg-slate-900 border-r border-slate-800 transform -translate-x-full transition-transform duration-200 flex flex-col">
+        <div class="flex items-center justify-between px-4 py-4 border-b border-slate-800">
+            <span class="font-display text-lg">Меню</span>
+            <button type="button" onclick="closeMobileDrawer()" class="w-9 h-9 rounded-xl hover:bg-slate-800 text-slate-400">×</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-1">
+            <button type="button" onclick="mobileGo('dashboard')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="dashboard"><i class="fa-solid fa-chart-line w-4 text-teal-400"></i>Дашборд</button>
+            <button type="button" onclick="mobileGo('flownote')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="flownote"><i class="fa-solid fa-pen-nib w-4 text-teal-400"></i>FlowNote</button>
+            <button type="button" onclick="mobileGo('spark')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="spark"><i class="fa-solid fa-lightbulb w-4 text-amber-400"></i>Искра</button>
+            <button type="button" onclick="mobileGo('utilities')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="utilities"><i class="fa-solid fa-toolbox w-4 text-violet-400"></i>Утилиты</button>
+            <a href="flowphoto.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm border border-violet-500/20 bg-violet-950/20 text-violet-200 mt-2"><i class="fa-solid fa-eye-low-vision w-4"></i>FlowPhoto</a>
+            <div class="border-t border-slate-800 my-3 pt-3 space-y-1">
+                <button type="button" onclick="mobileQuickNewNote()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-800 text-left"><i class="fa-solid fa-plus w-4 text-teal-400"></i>Новая заметка</button>
+                <button type="button" onclick="mobileOpenPalette()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-800 text-left"><i class="fa-solid fa-terminal w-4 text-teal-400"></i>Команды</button>
+                <button type="button" onclick="mobileToggleCalc()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-800 text-left"><i class="fa-solid fa-calculator w-4 text-teal-400"></i>Калькулятор</button>
+            </div>
+        </div>
+    </aside>
 
     <div class="max-w-screen-2xl mx-auto flex">
         
@@ -845,7 +912,7 @@
         </div>
 
         <!-- Main Content -->
-        <div class="flex-1 p-8 max-w-[1100px]">
+        <div class="flex-1 p-4 sm:p-8 pb-24 lg:pb-8 max-w-[1100px]">
             
             <!-- DASHBOARD -->
             <div id="dashboard" class="section active">
@@ -860,7 +927,7 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="text-xs text-slate-500">ВРЕМЯ В ФОКУСЕ</div>
-                                <div id="stat-focus-time" class="text-3xl font-semibold tabular-nums mt-1">47ч 20м</div>
+                                <div id="stat-focus-time" class="text-3xl font-semibold tabular-nums mt-1">0ч 0м</div>
                             </div>
                             <i class="fa-solid fa-clock text-3xl text-emerald-400/70"></i>
                         </div>
@@ -869,7 +936,7 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="text-xs text-slate-500">ИДЕЙ СОХРАНЕНО</div>
-                                <div id="stat-ideas" class="text-3xl font-semibold tabular-nums mt-1">128</div>
+                                <div id="stat-ideas" class="text-3xl font-semibold tabular-nums mt-1">0</div>
                             </div>
                             <i class="fa-solid fa-lightbulb text-3xl text-amber-400/70"></i>
                         </div>
@@ -878,7 +945,7 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="text-xs text-slate-500">ФОКУС-СЕССИЙ</div>
-                                <div id="stat-sessions" class="text-3xl font-semibold tabular-nums mt-1">214</div>
+                                <div id="stat-sessions" class="text-3xl font-semibold tabular-nums mt-1">0</div>
                             </div>
                             <i class="fa-solid fa-play text-3xl text-teal-400/70"></i>
                         </div>
@@ -899,7 +966,7 @@
                     <div class="font-semibold text-lg">Быстрый старт</div>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                     <div onclick="showSection('flownote')" class="tool-card cursor-pointer border border-slate-800 hover:border-teal-500/50 bg-slate-900 rounded-3xl p-5 group">
                         <div class="flex items-center gap-x-4">
                             <div class="w-11 h-11 bg-teal-600/10 text-teal-400 rounded-2xl flex items-center justify-center group-hover:bg-teal-600/20 transition-colors">
@@ -924,20 +991,31 @@
                         </div>
                     </div>
                     
+                    <a href="flowphoto.html" class="tool-card cursor-pointer border border-slate-800 hover:border-violet-500/50 bg-slate-900 rounded-3xl p-5 group block no-underline text-inherit">
+                        <div class="flex items-center gap-x-4">
+                            <div class="w-11 h-11 bg-violet-600/10 text-violet-400 rounded-2xl flex items-center justify-center group-hover:bg-violet-600/20 transition-colors">
+                                <i class="fa-solid fa-eye-low-vision text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold">FlowPhoto</div>
+                                <div class="text-xs text-slate-400">EXIF zero · шифрование · файлы</div>
+                            </div>
+                        </div>
+                    </a>
+
                     <div onclick="toggleCalculatorFromNav()" class="tool-card cursor-pointer border border-slate-800 hover:border-cyan-500/50 bg-slate-900 rounded-3xl p-5 group">
                         <div class="flex items-center gap-x-4">
                             <div class="w-11 h-11 bg-cyan-600/10 text-cyan-400 rounded-2xl flex items-center justify-center group-hover:bg-cyan-600/20 transition-colors relative">
                                 <i class="fa-solid fa-calculator text-xl"></i>
-                                <span class="absolute -top-0.5 -right-0.5 text-[7px] font-mono text-cyan-400/80 tracking-wider">FX</span>
                             </div>
                             <div>
                                 <div class="font-semibold">Калькулятор</div>
-                                <div class="text-xs text-slate-400">Плавающая панель · крипто · комиссии</div>
+                                <div class="text-xs text-slate-400">Крипто · комиссии</div>
                             </div>
                         </div>
                     </div>
 
-                    <div onclick="showSection('utilities')" class="tool-card cursor-pointer border border-slate-800 hover:border-violet-500/50 bg-slate-900 rounded-3xl p-5 group">
+                    <div onclick="showSection('utilities')" class="tool-card cursor-pointer border border-slate-800 hover:border-violet-500/50 bg-slate-900 rounded-3xl p-5 group sm:col-span-2 xl:col-span-1">
                         <div class="flex items-center gap-x-4">
                             <div class="w-11 h-11 bg-violet-600/10 text-violet-400 rounded-2xl flex items-center justify-center group-hover:bg-violet-600/20 transition-colors">
                                 <i class="fa-solid fa-toolbox text-xl"></i>
@@ -1221,14 +1299,19 @@
     </div>
 
     <!-- Calculator panel (не блокирует блокнот — пиши и считай одновременно) -->
-    <div id="calc-panel" class="hidden fixed right-3 top-[4.5rem] w-[min(400px,calc(100vw-24px))] max-h-[calc(100vh-5.5rem)] z-[290] glass border border-slate-600 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+    <div id="calc-panel" class="calc-size-m hidden fixed right-3 top-[4.5rem] w-[min(400px,calc(100vw-24px))] max-h-[calc(100vh-5.5rem)] z-[290] glass border border-slate-600 rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
         <div id="calc-panel-header" class="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900/80 shrink-0 select-none">
             <div class="flex items-center gap-x-2 min-w-0">
                 <i class="fa-solid fa-calculator text-teal-400 shrink-0"></i>
                 <span class="font-medium text-sm truncate">Калькулятор</span>
                 <span class="calc-drag-hint hidden text-[9px] text-teal-400/70">перетащи</span>
             </div>
-            <div class="flex items-center gap-1 shrink-0">
+            <div class="flex items-center gap-0.5 shrink-0">
+                <div class="flex items-center gap-0.5 mr-0.5 border border-slate-700 rounded-lg p-0.5">
+                    <button type="button" data-calc-size="s" onclick="setCalcPanelSize('s')" class="w-6 h-6 text-[9px] rounded hover:bg-slate-800 text-slate-500" title="Маленький">S</button>
+                    <button type="button" data-calc-size="m" onclick="setCalcPanelSize('m')" class="calc-size-btn-active w-6 h-6 text-[9px] rounded hover:bg-slate-800 text-slate-500" title="Средний">M</button>
+                    <button type="button" data-calc-size="l" onclick="setCalcPanelSize('l')" class="w-6 h-6 text-[9px] rounded hover:bg-slate-800 text-slate-500" title="Большой">L</button>
+                </div>
                 <button type="button" id="calc-drag-enable" onclick="enableCalcPanelDrag()" class="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-slate-800 text-slate-400 hover:text-teal-300" title="Переместить">
                     <i class="fa-solid fa-up-down-left-right text-xs"></i>
                 </button>
@@ -1397,7 +1480,17 @@
         <div class="px-3 py-2 border-t border-slate-700 text-[9px] text-slate-500 text-center shrink-0">
             Панель не блокирует FlowNote — пиши и считай параллельно
         </div>
+        <div id="calc-resize-handle" class="calc-resize-handle" title="Тянуть для ширины"></div>
     </div>
+
+    <!-- Mobile bottom navigation -->
+    <nav id="mobile-bottom-nav" class="mobile-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-[200] border-t border-slate-800 bg-slate-900/95 backdrop-blur-md flex justify-around items-center py-2 px-1">
+        <button type="button" onclick="mobileGo('dashboard')" class="mobile-nav-item flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] text-slate-500" data-mobile-nav="dashboard"><i class="fa-solid fa-chart-line text-base"></i><span>Дом</span></button>
+        <button type="button" onclick="mobileGo('flownote')" class="mobile-nav-item flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] text-slate-500" data-mobile-nav="flownote"><i class="fa-solid fa-pen-nib text-base"></i><span>Заметки</span></button>
+        <button type="button" onclick="mobileGo('spark')" class="mobile-nav-item flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] text-slate-500" data-mobile-nav="spark"><i class="fa-solid fa-lightbulb text-base"></i><span>Искра</span></button>
+        <button type="button" onclick="mobileToggleCalc()" class="mobile-nav-item flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] text-slate-500" data-mobile-nav="calc"><i class="fa-solid fa-calculator text-base"></i><span>Счёт</span></button>
+        <button type="button" onclick="toggleMobileDrawer()" class="mobile-nav-item flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] text-slate-500"><i class="fa-solid fa-ellipsis text-base"></i><span>Ещё</span></button>
+    </nav>
 
     <!-- Command Palette -->
     <div id="command-palette" onclick="if (event.target.id === 'command-palette') hideCommandPalette()"
@@ -1572,6 +1665,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Автономный режим -->
+                <div class="border border-slate-700 rounded-2xl overflow-hidden mt-3">
+                    <div class="px-4 py-3 flex items-center justify-between">
+                        <span class="flex items-center gap-x-2.5 font-medium text-sm">
+                            <i class="fa-solid fa-wifi text-slate-500 text-xs w-4"></i>
+                            Автономный режим
+                        </span>
+                        <span class="text-[10px] text-amber-400/80 font-mono">скоро</span>
+                    </div>
+                    <div class="px-4 pb-4">
+                        <p class="text-[10px] text-slate-500 leading-relaxed mb-2">Работа без интернета: стили и скрипты из папки проекта. Пока всё через CDN.</p>
+                        <button type="button" disabled class="w-full py-2.5 rounded-xl text-xs border border-slate-700 text-slate-600 cursor-not-allowed">Включить офлайн-пакет</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Опасная зона — вне аккордеона -->
@@ -1686,21 +1794,18 @@
         let currentSection = 'dashboard';
 
         function showSection(section) {
-            // Hide all
             document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
-            
-            // Show target
             const target = document.getElementById(section);
             if (target) target.classList.add('active');
-            
-            // Update nav (section items only — not calculator launcher)
+
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             const navEl = document.getElementById('nav-' + section);
             if (navEl) navEl.classList.add('active');
-            
+
             currentSection = section;
-            
-            // Init specific section if needed
+            updateMobileNavHighlight(section);
+            closeMobileDrawer();
+
             if (section === 'utilities' && !window.utilitiesInitialized) {
                 initUtilities();
             }
@@ -1708,6 +1813,74 @@
                 updateWordCount();
                 renderTimerHistory();
             }
+            if (section === 'dashboard') {
+                updateDashboardStats();
+            }
+        }
+
+        // ==================== MOBILE NAV ====================
+        let mobileDrawerOpen = false;
+
+        function toggleMobileDrawer() {
+            if (mobileDrawerOpen) closeMobileDrawer();
+            else openMobileDrawer();
+        }
+
+        function openMobileDrawer() {
+            mobileDrawerOpen = true;
+            document.getElementById('mobile-drawer')?.classList.add('open');
+            document.getElementById('mobile-drawer-backdrop')?.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileDrawer() {
+            if (!mobileDrawerOpen) return;
+            mobileDrawerOpen = false;
+            document.getElementById('mobile-drawer')?.classList.remove('open');
+            document.getElementById('mobile-drawer-backdrop')?.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function updateMobileNavHighlight(section) {
+            document.querySelectorAll('[data-mobile-nav]').forEach(btn => {
+                btn.classList.toggle('mobile-nav-active', btn.dataset.mobileNav === section);
+            });
+            document.querySelectorAll('[data-mobile-drawer]').forEach(btn => {
+                btn.classList.toggle('bg-slate-800', btn.dataset.mobileDrawer === section);
+                btn.classList.toggle('text-teal-300', btn.dataset.mobileDrawer === section);
+            });
+        }
+
+        function mobileGo(section) {
+            showSection(section);
+            updateMobileNavHighlight(section);
+        }
+
+        function mobileToggleCalc() {
+            closeMobileDrawer();
+            toggleCalculatorFromNav();
+            const open = isCalculatorOpen();
+            document.querySelectorAll('[data-mobile-nav="calc"]').forEach(btn => {
+                btn.classList.toggle('mobile-nav-active', open);
+            });
+            document.querySelectorAll('.section').forEach(el => {
+                if (open && el.classList.contains('active')) {
+                    document.querySelectorAll('[data-mobile-nav]').forEach(b => {
+                        if (b.dataset.mobileNav !== 'calc') b.classList.remove('mobile-nav-active');
+                    });
+                }
+            });
+        }
+
+        function mobileQuickNewNote() {
+            closeMobileDrawer();
+            quickNewNote();
+            updateMobileNavHighlight('flownote');
+        }
+
+        function mobileOpenPalette() {
+            closeMobileDrawer();
+            openCommandPalette();
         }
 
         // ==================== SECURITY & ENCRYPTED STORAGE ====================
@@ -3200,6 +3373,7 @@
         function closeCalculatorPanel() {
             document.getElementById('calc-panel')?.classList.add('hidden');
             updateCalcNavState();
+            document.querySelectorAll('[data-mobile-nav="calc"]').forEach(btn => btn.classList.remove('mobile-nav-active'));
         }
 
         function updateCalcDragUI() {
@@ -3299,6 +3473,89 @@
                 panel.style.left = pos.left + 'px';
                 panel.style.top = pos.top + 'px';
             });
+        }
+
+        const CALC_SIZE_KEY = 'flownote_calc_panel_size';
+        const CALC_CUSTOM_WIDTH_KEY = 'flownote_calc_panel_custom_width';
+
+        function setCalcPanelSize(size) {
+            const panel = document.getElementById('calc-panel');
+            if (!panel || !['s', 'm', 'l'].includes(size)) return;
+            panel.classList.remove('calc-size-s', 'calc-size-m', 'calc-size-l');
+            panel.classList.add('calc-size-' + size);
+            panel.style.width = '';
+            delete panel.dataset.customWidth;
+            delete panel.dataset.positioned;
+            panel.classList.remove('calc-custom-position');
+            panel.style.left = '';
+            panel.style.top = '';
+            panel.style.right = '';
+            panel.style.bottom = '';
+            localStorage.setItem(CALC_SIZE_KEY, size);
+            localStorage.removeItem(CALC_CUSTOM_WIDTH_KEY);
+            document.querySelectorAll('[data-calc-size]').forEach(btn => {
+                btn.classList.toggle('calc-size-btn-active', btn.dataset.calcSize === size);
+            });
+        }
+
+        function loadCalcPanelSize() {
+            const panel = document.getElementById('calc-panel');
+            if (!panel) return;
+            const customW = parseInt(localStorage.getItem(CALC_CUSTOM_WIDTH_KEY) || '', 10);
+            const saved = localStorage.getItem(CALC_SIZE_KEY) || 'm';
+            if (saved === 'custom' && customW >= 260) {
+                panel.classList.remove('calc-size-s', 'calc-size-m', 'calc-size-l');
+                panel.style.width = Math.min(customW, window.innerWidth - 24) + 'px';
+                panel.dataset.customWidth = String(customW);
+                document.querySelectorAll('[data-calc-size]').forEach(btn => btn.classList.remove('calc-size-btn-active'));
+                return;
+            }
+            setCalcPanelSize(['s', 'm', 'l'].includes(saved) ? saved : 'm');
+        }
+
+        function initCalcPanelResize() {
+            const handle = document.getElementById('calc-resize-handle');
+            const panel = document.getElementById('calc-panel');
+            if (!handle || !panel) return;
+
+            let resizing = false;
+            let startX = 0;
+            let startWidth = 0;
+            let pointerId = null;
+
+            handle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resizing = true;
+                pointerId = e.pointerId;
+                startX = e.clientX;
+                startWidth = panel.getBoundingClientRect().width;
+                handle.setPointerCapture(e.pointerId);
+                document.body.style.userSelect = 'none';
+            });
+
+            handle.addEventListener('pointermove', (e) => {
+                if (!resizing || e.pointerId !== pointerId) return;
+                const newW = Math.max(260, Math.min(window.innerWidth - 24, startWidth + (e.clientX - startX)));
+                panel.classList.remove('calc-size-s', 'calc-size-m', 'calc-size-l');
+                panel.style.width = newW + 'px';
+                panel.dataset.customWidth = String(Math.round(newW));
+                document.querySelectorAll('[data-calc-size]').forEach(btn => btn.classList.remove('calc-size-btn-active'));
+            });
+
+            function endResize(e) {
+                if (!resizing || e.pointerId !== pointerId) return;
+                resizing = false;
+                pointerId = null;
+                document.body.style.userSelect = '';
+                try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+                const w = Math.round(panel.getBoundingClientRect().width);
+                localStorage.setItem(CALC_SIZE_KEY, 'custom');
+                localStorage.setItem(CALC_CUSTOM_WIDTH_KEY, String(w));
+            }
+
+            handle.addEventListener('pointerup', endResize);
+            handle.addEventListener('pointercancel', endResize);
         }
 
         function showCalcTab(tab) {
@@ -3817,7 +4074,8 @@
         // ==================== UTILS ====================
         function showToast(message) {
             const toast = document.createElement('div');
-            toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-600 text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-x-2 z-[200]`;
+            const bottomClass = window.innerWidth < 1024 ? 'bottom-20' : 'bottom-6';
+            toast.className = `fixed ${bottomClass} left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-600 text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-x-2 z-[300] max-w-[90vw] text-center`;
             toast.innerHTML = `
                 <span>${message}</span>
             `;
@@ -4355,11 +4613,17 @@
             loadTheme();
             document.getElementById('nav-dashboard').classList.add('active');
             document.getElementById('dashboard').classList.add('active');
+            updateMobileNavHighlight('dashboard');
             window.addEventListener('keydown', handleGlobalKeydown, { capture: true });
             initCommandPaletteEvents();
             initCalcPanelDrag();
+            initCalcPanelResize();
+            loadCalcPanelSize();
             updateCalcDragUI();
             await initSecurityOnLoad();
+            if (!isSecurityEnabled() || isUnlocked) {
+                updateDashboardStats();
+            }
             startSelfDestructWatcher();
             updateIncognitoUI();
             console.log('%c[FlowNote Studio] Приложение успешно инициализировано', 'color:#64748b');
