@@ -4,60 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowPhoto — переход</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <meta http-equiv="refresh" content="2;url=https://flowphoto.onrender.com/">
+    <script src="flow-config.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; background: #06060b; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        body { font-family: system-ui, sans-serif; background: #06060b; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+        .box { text-align: center; padding: 2rem; }
+        a { color: #a78bfa; }
     </style>
 </head>
 <body>
-    <div class="max-w-md w-full border border-violet-900/50 rounded-2xl p-8 text-center bg-violet-950/20">
-        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-violet-600/20 flex items-center justify-center">
-            <i class="fa-solid fa-eye-low-vision text-violet-400 text-2xl"></i>
-        </div>
-        <h1 class="text-xl font-semibold mb-2">FlowPhoto</h1>
-        <p class="text-sm text-slate-400 mb-6 leading-relaxed" id="fp-msg">Подключаемся к серверу…</p>
-        <a id="fp-link" href="#" class="inline-block w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors mb-3">
-            Открыть FlowPhoto
-        </a>
-        <a href="index.html" class="text-xs text-slate-500 hover:text-violet-300">← FlowNote Studio</a>
-        <p id="fp-status" class="text-[10px] text-slate-600 mt-4 font-mono"></p>
+    <div class="box">
+        <p>Открываем FlowPhoto…</p>
+        <p><a id="fp-link" href="https://flowphoto.onrender.com/">https://flowphoto.onrender.com</a></p>
     </div>
-    <script src="flow-config.js"></script>
     <script>
         const LOCAL = 'http://127.0.0.1:8000';
+        const FALLBACK = 'https://flowphoto.onrender.com';
 
-        function go(url) {
-            document.getElementById('fp-link').href = url;
-            document.getElementById('fp-status').textContent = url;
-            location.replace(url.replace(/\/$/, '') + '/');
+        function redirect(url) {
+            const u = url.replace(/\/$/, '') + '/';
+            document.getElementById('fp-link').href = u;
+            location.replace(u);
         }
 
-        function tryLocalThenPublic(publicUrl) {
-            fetch(LOCAL + '/health', { mode: 'cors' }).then(r => r.ok ? r.json() : Promise.reject()).then(() => {
-                document.getElementById('fp-msg').textContent = 'Локальный сервер найден — открываем…';
-                go(LOCAL);
-            }).catch(() => {
-                if (publicUrl) {
-                    document.getElementById('fp-msg').textContent = 'Публичный FlowPhoto в облаке';
-                    go(publicUrl);
-                } else {
-                    document.getElementById('fp-msg').innerHTML = 'Публичный URL не настроен.<br>Деплой: см. <strong class="text-violet-300">ПУБЛИЧНЫЙ-ЗАПУСК.txt</strong><br>Или запусти <strong>start-flowphoto.bat</strong> локально.';
-                    document.getElementById('fp-status').textContent = 'flowPhotoUrl пуст в public-config.json';
-                    document.getElementById('fp-link').href = LOCAL;
-                    document.getElementById('fp-link').onclick = (e) => { e.preventDefault(); go(LOCAL); };
-                }
-            });
-        }
-
-        document.addEventListener('flow-config-ready', (e) => {
-            tryLocalThenPublic(e.detail?.flowPhotoUrl);
-        });
-        setTimeout(() => {
-            if (!document.getElementById('fp-status').textContent) {
-                tryLocalThenPublic(window.FLOW_CONFIG?.flowPhotoUrl);
+        function onConfig(cfg) {
+            const publicUrl = cfg?.flowPhotoUrl || FALLBACK;
+            const onGithub = location.hostname.includes('github.io');
+            if (!onGithub) {
+                fetch(LOCAL + '/health', { mode: 'cors' })
+                    .then((r) => (r.ok ? redirect(LOCAL) : redirect(publicUrl)))
+                    .catch(() => redirect(publicUrl));
+            } else {
+                redirect(publicUrl);
             }
-        }, 800);
+        }
+
+        document.addEventListener('flow-config-ready', (e) => onConfig(e.detail));
+        if (window.FLOW_CONFIG?.flowPhotoUrl) onConfig(window.FLOW_CONFIG);
     </script>
 </body>
 </html>

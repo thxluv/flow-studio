@@ -1,5 +1,4 @@
 {
   "flowNoteUrl": "https://thxluv.github.io/flow-studio/",
-  "flowPhotoUrl": "",
-  "_comment": "После деплоя FlowPhoto вставь URL сюда, например https://flowphoto-xxxx.onrender.com — затем deploy.bat"
+  "flowPhotoUrl": "https://flowphoto.onrender.com"
 }

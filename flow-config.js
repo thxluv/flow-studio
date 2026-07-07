@@ -1,14 +1,14 @@
 /**
  * Единый конфиг ссылок Flow Studio (GitHub Pages).
- * public-config.json обновляется после деплоя FlowPhoto в облако.
  */
 (function () {
     const DEFAULTS = {
         flowNoteUrl: 'https://thxluv.github.io/flow-studio/',
-        flowPhotoUrl: '',
+        flowPhotoUrl: 'https://flowphoto.onrender.com',
     };
 
     window.FLOW_CONFIG = { ...DEFAULTS };
+    let configReady = false;
 
     function normalizeUrl(url, trailingSlash) {
         if (!url || typeof url !== 'string') return '';
@@ -24,23 +24,26 @@
                 el.removeAttribute('title');
             } else {
                 el.href = 'flowphoto.html';
-                el.title = 'FlowPhoto: укажи flowPhotoUrl в public-config.json';
             }
         });
     }
 
+    function finishConfig(cfg) {
+        window.FLOW_CONFIG = { ...DEFAULTS, ...cfg };
+        if (cfg.flowNoteUrl) {
+            window.FLOW_CONFIG.flowNoteUrl = normalizeUrl(cfg.flowNoteUrl, true);
+        }
+        const photo = cfg.flowPhotoUrl || DEFAULTS.flowPhotoUrl;
+        if (photo) {
+            window.FLOW_CONFIG.flowPhotoUrl = normalizeUrl(photo, false);
+        }
+        configReady = true;
+        applyFlowPhotoLinks();
+        document.dispatchEvent(new CustomEvent('flow-config-ready', { detail: window.FLOW_CONFIG }));
+    }
+
     fetch('public-config.json', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : {}))
-        .then((cfg) => {
-            window.FLOW_CONFIG = { ...DEFAULTS, ...cfg };
-            if (cfg.flowNoteUrl) {
-                window.FLOW_CONFIG.flowNoteUrl = normalizeUrl(cfg.flowNoteUrl, true);
-            }
-            if (cfg.flowPhotoUrl) {
-                window.FLOW_CONFIG.flowPhotoUrl = normalizeUrl(cfg.flowPhotoUrl, false);
-            }
-            applyFlowPhotoLinks();
-            document.dispatchEvent(new CustomEvent('flow-config-ready', { detail: window.FLOW_CONFIG }));
-        })
-        .catch(() => applyFlowPhotoLinks());
+        .then(finishConfig)
+        .catch(() => finishConfig({}));
 })();
