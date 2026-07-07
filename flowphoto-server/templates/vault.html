@@ -35,6 +35,28 @@
     </div>
 </div>
 
+<!-- Модал: бэкап -->
+<div id="vault-backup-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
+    <div class="rounded-2xl border border-violet-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div>
+            <h3 class="font-display text-base text-violet-100" id="backup-modal-title">Бэкап FlowVault</h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed" id="backup-modal-hint"></p>
+        </div>
+        <div id="backup-file-row" class="hidden space-y-2">
+            <input type="file" id="backup-file-input" accept=".flowvault,application/json" class="hidden">
+            <button type="button" id="backup-file-pick" class="w-full py-2.5 rounded-xl text-xs border border-dashed border-violet-500/30 text-violet-200/80 hover:bg-violet-950/20">
+                <i class="fa-solid fa-file mr-1"></i><span id="backup-file-label">Выбрать файл .flowvault</span>
+            </button>
+        </div>
+        <input type="password" id="backup-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль бэкапа" autocomplete="new-password">
+        <input type="password" id="backup-password-confirm" class="hidden fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Повтори пароль бэкапа" autocomplete="new-password">
+        <div class="flex flex-col sm:flex-row gap-2">
+            <button type="button" id="backup-modal-action" class="fp-btn-primary flex-1 py-2.5 rounded-xl text-xs text-white">Продолжить</button>
+            <button type="button" id="backup-modal-cancel" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
+        </div>
+    </div>
+</div>
+
 <!-- Модал: подтверждение удаления -->
 <div id="vault-confirm-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
     <div class="rounded-2xl border border-red-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
@@ -65,6 +87,9 @@
             <i class="fa-solid fa-plus mr-1"></i>Создать новый
         </button>
     </div>
+    <button type="button" id="btn-restore-login" class="w-full text-[11px] text-violet-400/80 hover:text-violet-200 py-1">
+        <i class="fa-solid fa-file-arrow-up mr-1"></i>Восстановить из бэкапа .flowvault
+    </button>
 </div>
 
 <div id="vault-foreign" class="hidden rounded-2xl border border-amber-900/40 bg-amber-950/15 p-4 sm:p-5 space-y-3 mb-4">
@@ -77,6 +102,26 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="text-xs text-violet-300/80 font-mono" id="vault-status">FlowVault активен</span>
         <button type="button" id="vault-logout" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1">Выйти</button>
+    </div>
+
+    <!-- Локальный бэкап -->
+    <div id="vault-backup-section" class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-3">
+        <div class="flex items-center gap-2 text-sm text-slate-200 font-medium">
+            <i class="fa-solid fa-shield-halved text-violet-400 text-xs"></i> Локальный бэкап
+        </div>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+            Зашифрованный файл <code class="text-violet-300/80">.flowvault</code> — ключи расшифровки и права владельца.
+            Сервер не видит содержимое. Восстановление только с паролем бэкапа.
+        </p>
+        <p class="text-[10px] text-slate-600 font-mono" id="backup-stats"></p>
+        <div class="grid sm:grid-cols-2 gap-2">
+            <button type="button" id="btn-backup-export" class="fp-btn-secondary py-2.5 rounded-xl text-xs text-violet-200">
+                <i class="fa-solid fa-download mr-1"></i>Скачать бэкап
+            </button>
+            <button type="button" id="btn-backup-import" class="py-2.5 rounded-xl text-xs border border-slate-700 text-slate-400 hover:bg-slate-800">
+                <i class="fa-solid fa-upload mr-1"></i>Восстановить
+            </button>
+        </div>
     </div>
 
     <!-- Панель управления (только владелец) -->
@@ -123,6 +168,7 @@
 {% block scripts %}
 <script src="/static/js/flowphoto-upload.js"></script>
 <script src="/static/js/flowphoto-vault.js"></script>
+<script src="/static/js/flowphoto-vault-backup.js"></script>
 <script>
     const listEl = document.getElementById('vault-list');
     let pendingPassword = '';
@@ -132,8 +178,94 @@
     let selectedIds = new Set();
     let isOwner = false;
     let confirmAction = null;
+    let backupModalMode = '';
+    let backupSelectedFile = null;
 
     document.getElementById('vault-disclaimer-text').textContent = FlowPhotoUpload.VAULT_DISCLAIMER;
+
+    function updateBackupStats(photos) {
+        const el = document.getElementById('backup-stats');
+        if (!el) return;
+        if (!photos?.length) {
+            el.textContent = 'В сейфе пока нет фото для бэкапа';
+            return;
+        }
+        const keyed = photos.filter(p => p.hasLocalKey).length;
+        const missing = photos.length - keyed;
+        el.textContent = missing
+            ? `Ключей на устройстве: ${keyed} из ${photos.length} · без ключа: ${missing}`
+            : `Все ${photos.length} фото можно забэкапить с ключами`;
+    }
+
+    function closeBackupModal() {
+        document.getElementById('vault-backup-modal').classList.add('hidden');
+        backupModalMode = '';
+        backupSelectedFile = null;
+        document.getElementById('backup-password').value = '';
+        document.getElementById('backup-password-confirm').value = '';
+        document.getElementById('backup-file-input').value = '';
+        document.getElementById('backup-file-label').textContent = 'Выбрать файл .flowvault';
+    }
+
+    function openBackupModal(mode) {
+        backupModalMode = mode;
+        backupSelectedFile = null;
+        const fileRow = document.getElementById('backup-file-row');
+        const confirmPwd = document.getElementById('backup-password-confirm');
+        const title = document.getElementById('backup-modal-title');
+        const hint = document.getElementById('backup-modal-hint');
+        const action = document.getElementById('backup-modal-action');
+
+        document.getElementById('backup-password').value = '';
+        document.getElementById('backup-password-confirm').value = '';
+        document.getElementById('backup-file-input').value = '';
+        document.getElementById('backup-file-label').textContent = 'Выбрать файл .flowvault';
+
+        if (mode === 'export') {
+            title.textContent = 'Скачать бэкап';
+            hint.textContent = 'Придумай пароль бэкапа — без него файл бесполезен. Это может быть другой пароль, не пароль FlowVault.';
+            fileRow.classList.add('hidden');
+            confirmPwd.classList.remove('hidden');
+            action.textContent = 'Скачать .flowvault';
+        } else {
+            title.textContent = 'Восстановить из бэкапа';
+            hint.textContent = 'Выбери файл .flowvault и введи пароль бэкапа. После восстановления войди в FlowVault обычным паролем.';
+            fileRow.classList.remove('hidden');
+            confirmPwd.classList.add('hidden');
+            action.textContent = 'Восстановить';
+        }
+        document.getElementById('vault-backup-modal').classList.remove('hidden');
+    }
+
+    async function runBackupModalAction() {
+        const pwd = document.getElementById('backup-password').value;
+        try {
+            if (backupModalMode === 'export') {
+                const pwd2 = document.getElementById('backup-password-confirm').value;
+                if (pwd.length < 4) { showToast('Пароль бэкапа — минимум 4 символа'); return; }
+                if (pwd !== pwd2) { showToast('Пароли не совпадают'); return; }
+                const r = await FlowVaultBackup.exportBackupFile(pwd);
+                closeBackupModal();
+                let msg = `Бэкап сохранён: ${r.keyed} ключей`;
+                if (r.total > r.keyed) msg += ` (${r.total - r.keyed} без ключа на устройстве)`;
+                if (!r.hasOwner) msg += ' · без upload_claim — только просмотр';
+                showToast(msg);
+            } else {
+                if (!backupSelectedFile) { showToast('Выбери файл'); return; }
+                const r = await FlowVaultBackup.importBackupFile(backupSelectedFile, pwd);
+                closeBackupModal();
+                let msg = `Восстановлено ключей: ${r.keyed}`;
+                if (!r.hasOwner) msg += ' · только просмотр, пока нет upload_claim';
+                msg += ' · войди паролем FlowVault';
+                showToast(msg);
+                document.getElementById('vault-content').classList.add('hidden');
+                document.getElementById('vault-foreign').classList.add('hidden');
+                document.getElementById('vault-login').classList.remove('hidden');
+            }
+        } catch (e) {
+            showToast(e.message || 'Ошибка');
+        }
+    }
 
     function showForeignUi(foreign) {
         document.getElementById('vault-foreign').classList.toggle('hidden', !foreign);
@@ -281,6 +413,7 @@
         const photos = FlowPhotoVault.enrichWithLocalLinks(await FlowPhotoVault.vaultFetchPhotos());
         renderPhotos(photos);
         updateSelectionUi();
+        updateBackupStats(photos);
     }
 
     function showVaultContent() {
@@ -360,6 +493,20 @@
         document.getElementById('vault-login').classList.remove('hidden');
         showToast('Выход');
     });
+    document.getElementById('btn-backup-export').addEventListener('click', () => openBackupModal('export'));
+    document.getElementById('btn-backup-import').addEventListener('click', () => openBackupModal('import'));
+    document.getElementById('btn-restore-login').addEventListener('click', () => openBackupModal('import'));
+    document.getElementById('backup-modal-cancel').addEventListener('click', closeBackupModal);
+    document.getElementById('backup-modal-action').addEventListener('click', runBackupModalAction);
+    document.getElementById('backup-file-pick').addEventListener('click', () => {
+        document.getElementById('backup-file-input').click();
+    });
+    document.getElementById('backup-file-input').addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        backupSelectedFile = f || null;
+        document.getElementById('backup-file-label').textContent = f ? f.name : 'Выбрать файл .flowvault';
+    });
+
     document.getElementById('vault-create-own').addEventListener('click', () => {
         FlowPhotoUpload.clearVaultSession(true);
         document.getElementById('vault-content').classList.add('hidden');

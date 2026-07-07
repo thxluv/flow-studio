@@ -56,7 +56,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.2.0",
+    version="3.3.0",
 )
 
 
@@ -439,7 +439,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.2.0",
+        "version": "3.3.0",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,

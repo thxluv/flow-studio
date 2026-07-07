@@ -70,6 +70,21 @@
         } catch (_) {}
     }
 
+    function importVaultBackupData(data) {
+        const incoming = data?.links || {};
+        const owner = data?.owner;
+        if (owner?.vault_id && owner?.upload_claim) {
+            setVaultOwner({ vault_id: owner.vault_id, upload_claim: owner.upload_claim });
+            setVaultTrust('owner');
+        }
+        const merged = { ...getVaultLinksMap(), ...incoming };
+        try {
+            localStorage.setItem(VAULT_LINKS_KEY, JSON.stringify(merged));
+        } catch (_) {
+            throw new Error('Не удалось сохранить ключи в браузере');
+        }
+    }
+
     function vaultAuthHeaders() {
         const headers = {};
         const token = getVaultToken();
@@ -220,6 +235,12 @@
         if (clearOwner) setVaultOwner(null);
     }
 
+    /** Сброс только токена сессии — ключи и upload_claim в localStorage остаются. */
+    function clearVaultTokenOnly() {
+        try { localStorage.removeItem(VAULT_TOKEN_KEY); } catch (_) {}
+        _vaultId = null;
+    }
+
     async function uploadEncryptedFile(file, options) {
         if (!canUpload()) {
             throw new Error('Чужой FlowVault — создай свой с другим паролем');
@@ -281,6 +302,7 @@
         getVaultLink,
         getVaultLinksMap,
         removeVaultLinks,
+        importVaultBackupData,
         vaultAuthHeaders,
         applyVaultLogin,
         refreshVaultState,
@@ -289,6 +311,7 @@
         isForeignVault,
         canUpload,
         clearVaultSession,
+        clearVaultTokenOnly,
         uploadEncryptedFile,
         renderQr,
         hasLocalKeyForPhoto,
