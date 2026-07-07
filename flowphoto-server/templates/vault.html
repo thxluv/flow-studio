@@ -122,13 +122,11 @@
     <section class="space-y-3">
         <div class="flex items-center justify-between gap-2">
             <h2 class="text-sm font-medium text-slate-200">Мои фото</h2>
-            <button type="button" id="toggle-select-mode" class="hidden text-[11px] px-3 py-1.5 rounded-lg border border-violet-500/30 text-violet-200 hover:bg-violet-900/20 min-h-[36px]">
-                <i class="fa-solid fa-check-double mr-1"></i><span id="select-mode-label">Выбрать</span>
-            </button>
+            <p id="vault-select-hint" class="hidden text-[10px] text-slate-500">Отметь → удали</p>
         </div>
-        <div id="vault-selection-actions" class="hidden flex flex-wrap gap-2">
+        <div id="vault-selection-actions" class="hidden flex flex-wrap items-center gap-2">
             <button type="button" id="btn-delete-selected" class="text-[11px] px-3 py-2 rounded-lg border border-red-800/40 bg-red-950/20 text-red-300 hover:bg-red-950/40 disabled:opacity-40 min-h-[40px]" disabled>
-                <i class="fa-solid fa-trash mr-1"></i><span id="selected-count">0</span>
+                <i class="fa-solid fa-trash mr-1"></i>Удалить (<span id="selected-count">0</span>)
             </button>
             <button type="button" id="btn-select-all" class="text-[11px] px-3 py-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 min-h-[40px]">Все</button>
             <button type="button" id="btn-select-none" class="text-[11px] px-3 py-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 min-h-[40px]">Снять</button>
@@ -159,23 +157,16 @@
         </div>
     </details>
 
-    <!-- Управление -->
-    <details id="vault-manage-bar" class="hidden fp-vault-panel">
-        <summary><span><i class="fa-solid fa-sliders text-violet-400 mr-1.5 text-xs"></i>Управление</span></summary>
-        <div class="fp-vault-panel-body">
-            <button type="button" id="btn-burn-all" class="w-full text-[11px] py-3 rounded-xl border border-amber-900/40 bg-amber-950/15 text-amber-200/90 hover:bg-amber-950/25 min-h-[44px]">
-                <i class="fa-solid fa-fire-flame-curved mr-1"></i>Сжечь все фото
-            </button>
-        </div>
-    </details>
-
     <!-- Опасная зона -->
     <details id="vault-danger-zone" class="hidden fp-vault-panel fp-vault-panel-danger">
         <summary><span><i class="fa-solid fa-skull-crossbones text-red-400/80 mr-1.5 text-xs"></i>Опасная зона</span></summary>
         <div class="fp-vault-panel-body space-y-3">
             <p class="text-[11px] text-slate-500 leading-relaxed">
-                Удалит сейф, все фото и ссылки на сервере. Без восстановления.
+                Необратимые действия. Обычное удаление — через отметку фото в списке выше.
             </p>
+            <button type="button" id="btn-burn-all" class="w-full text-[11px] py-2.5 rounded-xl border border-amber-900/40 bg-amber-950/15 text-amber-200/90 hover:bg-amber-950/25 min-h-[44px]">
+                <i class="fa-solid fa-fire-flame-curved mr-1"></i>Сжечь все фото
+            </button>
             <button type="button" id="btn-delete-account" class="w-full py-2.5 rounded-xl text-[11px] border border-red-800/50 bg-red-950/30 text-red-300 hover:bg-red-950/50 min-h-[44px]">
                 Удалить FlowVault навсегда
             </button>
@@ -193,7 +184,6 @@
     let pendingPassword = '';
     let pendingIntent = 'login';
     let currentPhotos = [];
-    let selectMode = false;
     let selectedIds = new Set();
     let isOwner = false;
     let confirmAction = null;
@@ -301,9 +291,9 @@
         const canManage = isOwner && !foreign;
         document.getElementById('vault-foreign').classList.toggle('hidden', !foreign);
         document.getElementById('vault-upload-link').classList.toggle('hidden', foreign);
-        document.getElementById('vault-manage-bar').classList.toggle('hidden', !canManage);
         document.getElementById('vault-danger-zone').classList.toggle('hidden', !canManage);
-        document.getElementById('toggle-select-mode').classList.toggle('hidden', !canManage);
+        document.getElementById('vault-selection-actions').classList.toggle('hidden', !canManage);
+        document.getElementById('vault-select-hint').classList.toggle('hidden', !canManage);
 
         const badge = document.getElementById('vault-status');
         const statusText = document.getElementById('vault-status-text');
@@ -359,8 +349,8 @@
         listEl.innerHTML = photos.map(p => {
             const url = p.fullUrl;
             const checked = selectedIds.has(p.short_id);
-            const checkHtml = (selectMode && isOwner)
-                ? `<input type="checkbox" class="fp-vault-check mt-1" data-check="${p.short_id}" ${checked ? 'checked' : ''}>`
+            const checkHtml = isOwner
+                ? `<input type="checkbox" class="fp-vault-check mt-1" data-check="${p.short_id}" ${checked ? 'checked' : ''} aria-label="Выбрать фото">`
                 : '';
             const keyBadge = p.hasLocalKey
                 ? '<span class="text-[9px] text-emerald-500/80"><i class="fa-solid fa-key text-[8px] mr-0.5"></i>ключ есть</span>'
@@ -370,9 +360,6 @@
                 : `<span class="flex-1 sm:flex-none text-center py-2.5 px-3 text-[11px] text-amber-500/70 min-h-[40px] flex items-center justify-center">Нет ключа</span>`;
             const copyBtn = url
                 ? `<button type="button" class="copy-vault py-2.5 px-3 text-[11px] text-slate-400 border border-slate-800 rounded-lg hover:bg-slate-800 min-h-[40px] min-w-[40px]" data-url="${url.replace(/"/g,'&quot;')}" title="Копировать"><i class="fa-solid fa-copy"></i></button>`
-                : '';
-            const delBtn = (isOwner && !selectMode)
-                ? `<button type="button" class="del-one py-2.5 px-3 text-[11px] text-red-400/80 border border-red-900/30 rounded-lg hover:bg-red-950/30 min-h-[40px] min-w-[40px]" data-id="${p.short_id}" title="Удалить"><i class="fa-solid fa-trash"></i></button>`
                 : '';
             return `<div class="fp-vault-card rounded-xl border border-violet-950/80 bg-black/40 p-3 sm:p-3.5 ${checked ? 'selected' : ''}" data-id="${p.short_id}">
                 <div class="flex items-start gap-2.5">
@@ -386,7 +373,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex gap-2 mt-3 pl-0 ${selectMode && isOwner ? 'pl-7' : ''}">${openBtn}${copyBtn}${delBtn}</div>
+                <div class="flex gap-2 mt-3 ${isOwner ? 'pl-7' : ''}">${openBtn}${copyBtn}</div>
             </div>`;
         }).join('');
 
@@ -395,9 +382,6 @@
         });
         listEl.querySelectorAll('.copy-vault').forEach(btn => {
             btn.onclick = () => navigator.clipboard.writeText(btn.dataset.url).then(() => showToast('Скопировано'));
-        });
-        listEl.querySelectorAll('.del-one').forEach(btn => {
-            btn.onclick = () => showConfirm('delete-one', btn.dataset.id);
         });
     }
 
@@ -413,10 +397,7 @@
         extra.classList.add('hidden');
         document.getElementById('confirm-password').value = '';
 
-        if (type === 'delete-one') {
-            document.getElementById('confirm-title').textContent = 'Удалить фото?';
-            document.getElementById('confirm-text').textContent = 'Файл исчезнет с сервера. Ссылка перестанет работать.';
-        } else if (type === 'delete-batch') {
+        if (type === 'delete-batch') {
             document.getElementById('confirm-title').textContent = `Удалить ${payload} фото?`;
             document.getElementById('confirm-text').textContent = 'Выбранные файлы будут уничтожены на сервере без восстановления.';
         } else if (type === 'burn-all') {
@@ -436,11 +417,7 @@
         confirmAction = null;
         if (!act) return;
         try {
-            if (act.type === 'delete-one') {
-                await FlowPhotoVault.vaultDeletePhoto(act.payload);
-                selectedIds.delete(act.payload);
-                showToast('Фото удалено');
-            } else if (act.type === 'delete-batch') {
+            if (act.type === 'delete-batch') {
                 const ids = [...selectedIds];
                 await FlowPhotoVault.vaultDeleteBatch(ids);
                 ids.forEach(id => selectedIds.delete(id));
@@ -455,7 +432,6 @@
                 if (pwd.length < 4) { showToast('Введи пароль'); return; }
                 await FlowPhotoVault.vaultDeleteAccount(pwd);
                 selectedIds.clear();
-                selectMode = false;
                 document.getElementById('vault-content').classList.add('hidden');
                 document.getElementById('vault-login').classList.remove('hidden');
                 setLoginView();
@@ -490,15 +466,6 @@
         showVaultContent();
         await loadVault();
     }
-
-    document.getElementById('toggle-select-mode').addEventListener('click', () => {
-        selectMode = !selectMode;
-        selectedIds.clear();
-        document.getElementById('vault-selection-actions').classList.toggle('hidden', !selectMode);
-        document.getElementById('select-mode-label').textContent = selectMode ? 'Готово' : 'Выбрать';
-        renderPhotos(currentPhotos);
-        updateSelectionUi();
-    });
 
     document.getElementById('btn-select-all').addEventListener('click', () => {
         currentPhotos.forEach(p => selectedIds.add(p.short_id));
@@ -550,7 +517,7 @@
 
     document.getElementById('vault-logout').addEventListener('click', () => {
         FlowPhotoUpload.clearVaultSession();
-        selectMode = false; selectedIds.clear();
+        selectedIds.clear();
         document.getElementById('vault-content').classList.add('hidden');
         document.getElementById('vault-foreign').classList.add('hidden');
         document.getElementById('vault-login').classList.remove('hidden');
