@@ -16,7 +16,8 @@
     </p>
 </div>
 
-<div id="state-error" class="hidden rounded-2xl border border-red-900/40 bg-red-950/15 p-6 text-center">
+<div id="state-error" class="hidden rounded-2xl border border-red-900/40 bg-red-950/15 p-6 text-center space-y-3">
+    <i class="fa-solid fa-hourglass-end text-red-400/70 text-2xl"></i>
     <p class="text-sm text-red-300" id="error-text"></p>
 </div>
 
@@ -29,9 +30,13 @@
         <div class="mt-4 text-[10px] text-slate-500 font-mono space-y-0.5" id="view-meta">
             ID: {{ short_id }}<br>
             Файл: {{ photo.original_name }}<br>
-            Загружено: {{ photo.created_at[:19].replace('T', ' ') }} UTC
+            Загружено: {{ photo.created_at[:19].replace('T', ' ') }} UTC<br>
+            Удалится без просмотров: <span class="text-amber-300/80">{{ photo.expires_at[:19].replace('T', ' ') }} UTC</span>
         </div>
     </div>
+    <p class="text-[10px] text-slate-600 text-center font-mono">
+        Просмотр обновил таймер хранения — фото останется, пока ссылкой пользуются
+    </p>
 </div>
 {% endblock %}
 
@@ -40,6 +45,8 @@
 <script>
     const SHORT_ID = {{ short_id | tojson }};
     const MIME_TYPE = {{ photo.mime_type | tojson }};
+    const ORIGINAL_NAME = {{ photo.original_name | tojson }};
+    const CREATED_AT = {{ photo.created_at[:19].replace('T', ' ') | tojson }};
 
     function showState(name) {
         ['loading', 'no-key', 'error', 'done'].forEach(s => {
@@ -57,18 +64,37 @@
         showState('loading');
         try {
             const res = await fetch('/raw/' + SHORT_ID, { cache: 'no-store' });
+            if (res.status === 404) {
+                throw new Error('Фото не найдено или срок хранения истёк');
+            }
             if (!res.ok) throw new Error('Файл не найден на сервере');
             const buf = await res.arrayBuffer();
             const plain = await FlowPhotoCrypto.decryptPayload(buf, keyB64);
             const blob = new Blob([plain], { type: MIME_TYPE });
             document.getElementById('view-img').src = URL.createObjectURL(blob);
+            try {
+                const infoRes = await fetch('/info/' + SHORT_ID, { cache: 'no-store' });
+                if (infoRes.ok) {
+                    const info = await infoRes.json();
+                    const exp = (info.expires_at || '').slice(0, 19).replace('T', ' ');
+                    if (exp) {
+                        document.getElementById('view-meta').innerHTML =
+                            `ID: ${SHORT_ID}<br>` +
+                            `Файл: ${ORIGINAL_NAME}<br>` +
+                            `Загружено: ${CREATED_AT} UTC<br>` +
+                            `Удалится без просмотров: <span class="text-amber-300/80">${exp} UTC</span>`;
+                    }
+                }
+            } catch (_) {}
             showState('done');
         } catch (e) {
             console.error(e);
+            const expired = /истёк|не найдено/i.test(e.message || '');
             document.getElementById('error-text').textContent =
-                e.message?.includes('decrypt') || e.name === 'OperationError'
-                    ? 'Неверный ключ в ссылке или повреждённый файл'
-                    : (e.message || 'Ошибка расшифровки');
+                expired ? 'Срок хранения истёк — фото удалено с сервера'
+                    : (e.message?.includes('decrypt') || e.name === 'OperationError'
+                        ? 'Неверный ключ в ссылке или повреждённый файл'
+                        : (e.message || 'Ошибка расшифровки'));
             showState('error');
         }
     }

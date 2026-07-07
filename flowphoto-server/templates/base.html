@@ -24,6 +24,42 @@
             border-color: rgba(139, 92, 246, 0.65);
             background: rgba(139, 92, 246, 0.06);
         }
+        .fp-retention-chip {
+            border: 1px solid rgba(139, 92, 246, 0.22);
+            background: rgba(12, 12, 20, 0.6);
+            color: #94a3b8;
+            transition: all 0.15s;
+        }
+        .fp-retention-chip:hover {
+            border-color: rgba(139, 92, 246, 0.45);
+            color: #c4b5fd;
+            background: rgba(139, 92, 246, 0.08);
+        }
+        .fp-retention-chip.active {
+            border-color: rgba(139, 92, 246, 0.7);
+            background: rgba(139, 92, 246, 0.18);
+            color: #e9d5ff;
+            box-shadow: 0 0 18px rgba(139, 92, 246, 0.15);
+        }
+        .fp-retention-custom {
+            border: 1px solid rgba(139, 92, 246, 0.22);
+            background: rgba(12, 12, 20, 0.6);
+            transition: all 0.15s;
+        }
+        .fp-retention-custom.active {
+            border-color: rgba(139, 92, 246, 0.55);
+            background: rgba(139, 92, 246, 0.08);
+        }
+        .fp-retention-input {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            color: #e2e8f0;
+        }
+        .fp-retention-input:focus {
+            outline: none;
+            border-color: rgba(139, 92, 246, 0.55);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.12);
+        }
     </style>
     {% block head %}{% endblock %}
 </head>

@@ -25,6 +25,51 @@
         </div>
         <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 text-xs text-slate-400 font-mono space-y-1" id="meta-report"></div>
     </div>
+
+    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-4">
+        <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-violet-600/15 border border-violet-500/25 flex items-center justify-center shrink-0 mt-0.5">
+                <i class="fa-solid fa-hourglass-half text-violet-400 text-xs"></i>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="text-sm text-slate-200 font-medium mb-0.5">Срок хранения</div>
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    Фото удалится, если ссылкой не пользовались выбранное время.
+                    Каждый просмотр <span class="text-violet-300/80">обновляет таймер</span>.
+                </p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2" id="retention-presets">
+            <button type="button" data-seconds="86400" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">1 день</button>
+            <button type="button" data-seconds="604800" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">7 дней</button>
+            <button type="button" data-seconds="2592000" class="fp-retention-chip active px-3 py-1.5 rounded-lg text-[11px] font-medium">30 дней</button>
+            <button type="button" data-seconds="7776000" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">90 дней</button>
+            <button type="button" data-seconds="31536000" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">1 год</button>
+        </div>
+
+        <div id="retention-custom" class="fp-retention-custom rounded-xl p-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="custom-mode-btn" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">
+                    <i class="fa-solid fa-pen-to-square mr-1 text-[10px]"></i>Свой срок
+                </button>
+                <div id="custom-fields" class="hidden flex flex-wrap items-center gap-2">
+                    <input type="number" id="custom-value" min="1" value="14" class="fp-retention-input w-20 px-2.5 py-1.5 rounded-lg text-[11px] font-mono">
+                    <select id="custom-unit" class="fp-retention-input px-2.5 py-1.5 rounded-lg text-[11px]">
+                        <option value="hours">часов</option>
+                        <option value="days" selected>дней</option>
+                        <option value="weeks">недель</option>
+                        <option value="months">месяцев</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <p id="retention-summary" class="text-[10px] text-violet-300/70 font-mono">
+            Удаление через 30 дней без просмотров
+        </p>
+    </div>
+
     <button type="button" id="upload-btn" class="fp-btn-primary w-full py-3.5 rounded-xl text-sm font-semibold text-white">
         <i class="fa-solid fa-lock mr-1"></i>Зашифровать и получить ссылку
     </button>
@@ -38,6 +83,10 @@
         Короткий путь: <code class="text-violet-300" id="short-path"></code> — без <code>#ключ</code> фото не открыть.
         Полная ссылка содержит ключ после <code>#</code>.
     </p>
+    <div class="rounded-xl border border-amber-900/35 bg-amber-950/10 px-3 py-2.5 flex items-start gap-2.5">
+        <i class="fa-solid fa-hourglass-end text-amber-400/80 text-xs mt-0.5"></i>
+        <div class="text-[11px] text-amber-200/90 leading-relaxed" id="result-retention"></div>
+    </div>
     <div class="rounded-xl border border-violet-900/50 bg-black/40 px-3 py-2.5">
         <div class="text-[10px] text-slate-500 mb-1">Полная ссылка (с ключом)</div>
         <input type="text" readonly id="full-url" class="w-full bg-transparent text-[11px] font-mono text-violet-200 outline-none break-all">
@@ -57,10 +106,90 @@
 <script src="/static/js/flowphoto-crypto.js"></script>
 <script>
     const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
+    const MIN_RETENTION = {{ min_retention_seconds }};
+    const MAX_RETENTION = {{ max_retention_seconds }};
+    const DEFAULT_RETENTION = {{ default_retention_seconds }};
+
     let selectedFile = null;
+    let selectedRetention = DEFAULT_RETENTION;
+    let customMode = false;
 
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    const retentionSummary = document.getElementById('retention-summary');
+    const customFields = document.getElementById('custom-fields');
+    const customValue = document.getElementById('custom-value');
+    const customUnit = document.getElementById('custom-unit');
+    const customModeBtn = document.getElementById('custom-mode-btn');
+    const customBlock = document.getElementById('retention-custom');
+
+    const UNIT_SECONDS = {
+        hours: 3600,
+        days: 86400,
+        weeks: 604800,
+        months: 2592000,
+    };
+
+    function clampRetention(seconds) {
+        return Math.max(MIN_RETENTION, Math.min(MAX_RETENTION, Math.round(seconds)));
+    }
+
+    function formatRetentionLabel(seconds) {
+        if (seconds % 31536000 === 0 && seconds >= 31536000) return (seconds / 31536000) + ' ' + pluralRu(seconds / 31536000, 'год', 'года', 'лет');
+        if (seconds % 2592000 === 0 && seconds >= 2592000) return (seconds / 2592000) + ' ' + pluralRu(seconds / 2592000, 'месяц', 'месяца', 'месяцев');
+        if (seconds % 604800 === 0 && seconds >= 604800) return (seconds / 604800) + ' ' + pluralRu(seconds / 604800, 'неделю', 'недели', 'недель');
+        if (seconds % 86400 === 0 && seconds >= 86400) return (seconds / 86400) + ' ' + pluralRu(seconds / 86400, 'день', 'дня', 'дней');
+        if (seconds % 3600 === 0 && seconds >= 3600) return (seconds / 3600) + ' ' + pluralRu(seconds / 3600, 'час', 'часа', 'часов');
+        return seconds + ' сек';
+    }
+
+    function pluralRu(n, one, few, many) {
+        const mod10 = n % 10, mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return one;
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+        return many;
+    }
+
+    function updateRetentionSummary() {
+        const label = formatRetentionLabel(selectedRetention);
+        retentionSummary.textContent = 'Удаление через ' + label + ' без просмотров';
+    }
+
+    function setPreset(seconds) {
+        customMode = false;
+        selectedRetention = clampRetention(seconds);
+        customBlock.classList.remove('active');
+        customModeBtn.classList.remove('active');
+        customFields.classList.add('hidden');
+        document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => {
+            btn.classList.toggle('active', Number(btn.dataset.seconds) === selectedRetention);
+        });
+        updateRetentionSummary();
+    }
+
+    function enableCustomMode() {
+        customMode = true;
+        document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => btn.classList.remove('active'));
+        customBlock.classList.add('active');
+        customModeBtn.classList.add('active');
+        customFields.classList.remove('hidden');
+        applyCustomRetention();
+    }
+
+    function applyCustomRetention() {
+        const raw = Math.max(1, parseInt(customValue.value, 10) || 1);
+        customValue.value = raw;
+        const unit = customUnit.value;
+        selectedRetention = clampRetention(raw * UNIT_SECONDS[unit]);
+        updateRetentionSummary();
+    }
+
+    document.querySelectorAll('#retention-presets .fp-retention-chip').forEach(btn => {
+        btn.addEventListener('click', () => setPreset(Number(btn.dataset.seconds)));
+    });
+    customModeBtn.addEventListener('click', enableCustomMode);
+    customValue.addEventListener('input', applyCustomRetention);
+    customUnit.addEventListener('change', applyCustomRetention);
 
     ['dragenter', 'dragover'].forEach(ev => {
         dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -96,6 +225,12 @@
         document.getElementById('result-block').classList.add('hidden');
     }
 
+    function formatExpiresAt(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
     document.getElementById('upload-btn').addEventListener('click', async () => {
         if (!selectedFile) return;
         const btn = document.getElementById('upload-btn');
@@ -109,6 +244,7 @@
             form.append('encrypted_file', new Blob([payload], { type: 'application/octet-stream' }), 'encrypted.bin');
             form.append('mime_type', mime);
             form.append('original_name', selectedFile.name);
+            form.append('retention_seconds', String(selectedRetention));
 
             const res = await fetch('/upload', { method: 'POST', body: form });
             const data = await res.json();
@@ -118,8 +254,13 @@
             }
 
             const fullUrl = FlowPhotoCrypto.buildFullViewUrl(data.short_id, keyBytes);
+            const label = formatRetentionLabel(data.retention_seconds);
             document.getElementById('short-path').textContent = '/view/' + data.short_id;
             document.getElementById('full-url').value = fullUrl;
+            document.getElementById('result-retention').innerHTML =
+                `<strong>Хранится ${label}</strong> без просмотров. ` +
+                `Каждый раз, когда кто-то откроет ссылку, таймер сбросится. ` +
+                `Сейчас удалится не позже <span class="font-mono text-amber-100/80">${formatExpiresAt(data.expires_at)}</span>.`;
             document.getElementById('result-block').classList.remove('hidden');
             showToast('Ссылка готова — скопируй и отправь');
         } catch (e) {
@@ -142,5 +283,7 @@
         document.getElementById('result-block').classList.add('hidden');
         document.getElementById('preview-img').removeAttribute('src');
     }
+
+    setPreset(DEFAULT_RETENTION);
 </script>
 {% endblock %}
