@@ -1,8 +1,8 @@
-# Render.com Blueprint — FlowPhoto (Free + R2)
+# Render.com Blueprint — FlowPhoto (Free + Storj S3)
 # https://dashboard.render.com/
 #
-# Free: диск эфемерный. Постоянство — бэкап SQLite в Cloudflare R2 + restore при рестарте.
-# Пошаговая настройка R2: archive/R2-FREE-RENDER.md
+# Free: диск эфемерный. Постоянство — бэкап SQLite в Storj + restore при рестарте.
+# Пошаговая настройка: archive/STORJ-FREE-RENDER.md
 services:
   - type: web
     name: flowphoto
@@ -30,7 +30,8 @@ services:
         value: "8000"
       # Dashboard → Secret:
       # FLOWPHOTO_VAULT_SECRET (≥32 символов)
-      # Dashboard → Secret (после создания R2):
+      # Dashboard → Secret (после Storj S3 Credentials):
       # FLOWPHOTO_BACKUP_BUCKET, FLOWPHOTO_BACKUP_ACCESS_KEY, FLOWPHOTO_BACKUP_SECRET_KEY
-      # FLOWPHOTO_BACKUP_ENDPOINT = https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+      # FLOWPHOTO_BACKUP_ENDPOINT = https://gateway.storjshare.io
       # FLOWPHOTO_BACKUP_PREFIX = flowphoto
+      # FLOWPHOTO_BACKUP_INTERVAL = 1800, FLOWPHOTO_BACKUP_KEEP = 12

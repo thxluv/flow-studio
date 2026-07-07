@@ -1,4 +1,4 @@
-"""Бэкап SQLite в S3/R2 и восстановление при пустой БД (для Free-tier survival)."""
+"""Бэкап SQLite в S3-хранилище (Storj / R2) и restore при пустой БД."""
 from __future__ import annotations
 
 import logging
@@ -29,12 +29,16 @@ def _s3_client():
 
     endpoint = os.environ.get("FLOWPHOTO_BACKUP_ENDPOINT") or None
     session = boto3.session.Session()
+    # path-style — нужен для Storj; R2 тоже работает
     return session.client(
         "s3",
         endpoint_url=endpoint,
         aws_access_key_id=os.environ["FLOWPHOTO_BACKUP_ACCESS_KEY"],
         aws_secret_access_key=os.environ["FLOWPHOTO_BACKUP_SECRET_KEY"],
-        config=Config(signature_version="s3v4"),
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
     )
 
 

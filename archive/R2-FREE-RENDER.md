@@ -1,3 +1,7 @@
+# FlowPhoto: Render Free + Cloudflare R2 (устарело — см. STORJ-FREE-RENDER.md)
+
+> **Рекомендуем Storj:** 25 ГБ free, только email → [`STORJ-FREE-RENDER.md`](STORJ-FREE-RENDER.md)
+
 # FlowPhoto: Render Free + Cloudflare R2 (пошагово)
 
 Цель: бесплатный хостинг на Render, фото не пропадают навсегда — база копируется в R2, после рестарта подтягивается обратно.
