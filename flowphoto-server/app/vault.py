@@ -4,7 +4,7 @@ from __future__ import annotations
 import secrets
 from typing import Any
 
-from app.database import get_connection, get_photo, _utc_iso
+from app.database import delete_photo, get_connection, get_photo, _utc_iso
 from app.security import (
     create_upload_claim,
     create_vault_token,
@@ -137,3 +137,69 @@ def remove_from_vault(vault_id: str, short_id: str) -> bool:
         )
         conn.commit()
         return cur.rowcount > 0
+
+
+def _photo_in_vault(vault_id: str, short_id: str) -> bool:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM vault_photos WHERE vault_id = ? AND short_id = ?",
+            (vault_id, short_id),
+        ).fetchone()
+    return row is not None
+
+
+def delete_vault_photo_permanent(
+    vault_id: str, short_id: str, upload_claim: str | None
+) -> bool:
+    if not can_upload_to_vault(vault_id, upload_claim):
+        return False
+    if not _photo_in_vault(vault_id, short_id):
+        return False
+    return delete_photo(short_id)
+
+
+def delete_vault_photos_batch(
+    vault_id: str, short_ids: list[str], upload_claim: str | None
+) -> int:
+    if not can_upload_to_vault(vault_id, upload_claim):
+        return 0
+    deleted = 0
+    for sid in short_ids:
+        if delete_vault_photo_permanent(vault_id, sid, upload_claim):
+            deleted += 1
+    return deleted
+
+
+def burn_all_vault_photos(vault_id: str, upload_claim: str | None) -> int:
+    if not can_upload_to_vault(vault_id, upload_claim):
+        return 0
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT short_id FROM vault_photos WHERE vault_id = ?",
+            (vault_id,),
+        ).fetchall()
+    deleted = 0
+    for row in rows:
+        if delete_photo(row["short_id"]):
+            deleted += 1
+    return deleted
+
+
+def delete_vault_account(
+    vault_id: str, password: str, upload_claim: str | None
+) -> bool:
+    if not can_upload_to_vault(vault_id, upload_claim):
+        return False
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM vaults WHERE vault_id = ?",
+            (vault_id,),
+        ).fetchone()
+    if not row or not verify_secret(password, row["password_hash"]):
+        return False
+    burn_all_vault_photos(vault_id, upload_claim)
+    with get_connection() as conn:
+        conn.execute("DELETE FROM vault_photos WHERE vault_id = ?", (vault_id,))
+        conn.execute("DELETE FROM vaults WHERE vault_id = ?", (vault_id,))
+        conn.commit()
+    return True

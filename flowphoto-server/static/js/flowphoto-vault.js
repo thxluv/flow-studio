@@ -28,11 +28,60 @@
             headers: { 'X-Vault-Token': token },
         });
         if (res.status === 401) {
-            FlowPhotoUpload.clearVaultSession();
+            FlowPhotoUpload.clearVaultSession(true);
             return [];
         }
         const data = await res.json();
         return data.photos || [];
+    }
+
+    async function vaultDeletePhoto(shortId) {
+        const res = await fetch('/api/vault/photos/' + shortId, {
+            method: 'DELETE',
+            headers: FlowPhotoUpload.vaultAuthHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Не удалось удалить');
+        FlowPhotoUpload.removeVaultLinks([shortId]);
+        return data;
+    }
+
+    async function vaultDeleteBatch(shortIds) {
+        const form = new FormData();
+        form.append('short_ids', shortIds.join(','));
+        const res = await fetch('/api/vault/photos/delete-batch', {
+            method: 'POST',
+            body: form,
+            headers: FlowPhotoUpload.vaultAuthHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Не удалось удалить');
+        FlowPhotoUpload.removeVaultLinks(shortIds);
+        return data;
+    }
+
+    async function vaultBurnAll() {
+        const res = await fetch('/api/vault/burn-all', {
+            method: 'POST',
+            headers: FlowPhotoUpload.vaultAuthHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Не удалось сжечь');
+        return data;
+    }
+
+    async function vaultDeleteAccount(password) {
+        const form = new FormData();
+        form.append('password', password);
+        const res = await fetch('/api/vault/account', {
+            method: 'DELETE',
+            body: form,
+            headers: FlowPhotoUpload.vaultAuthHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Не удалось удалить аккаунт');
+        FlowPhotoUpload.clearVaultSession(true);
+        return data;
     }
 
     function enrichWithLocalLinks(photos) {
@@ -47,6 +96,10 @@
         checkPasswordExists,
         vaultLogin,
         vaultFetchPhotos,
+        vaultDeletePhoto,
+        vaultDeleteBatch,
+        vaultBurnAll,
+        vaultDeleteAccount,
         enrichWithLocalLinks,
     };
 })(window);

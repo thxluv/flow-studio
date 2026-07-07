@@ -62,6 +62,25 @@
         return map[shortId]?.url || null;
     }
 
+    function removeVaultLinks(shortIds) {
+        try {
+            const map = getVaultLinksMap();
+            (shortIds || []).forEach(id => { delete map[id]; });
+            localStorage.setItem(VAULT_LINKS_KEY, JSON.stringify(map));
+        } catch (_) {}
+    }
+
+    function vaultAuthHeaders() {
+        const headers = {};
+        const token = getVaultToken();
+        const owner = getVaultOwner();
+        if (token) headers['X-Vault-Token'] = token;
+        if (owner?.upload_claim && isVaultOwner()) {
+            headers['X-Vault-Upload-Claim'] = owner.upload_claim;
+        }
+        return headers;
+    }
+
     function setVaultTrust(trust) {
         _vaultTrust = trust;
         try {
@@ -259,6 +278,8 @@
         saveVaultLink,
         getVaultLink,
         getVaultLinksMap,
+        removeVaultLinks,
+        vaultAuthHeaders,
         applyVaultLogin,
         refreshVaultState,
         resolveVaultTrust,

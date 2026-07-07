@@ -14,7 +14,7 @@
     <span id="vault-disclaimer-text"></span>
 </div>
 
-<!-- Предупреждение: существующий пароль -->
+<!-- Модал: занятый пароль -->
 <div id="vault-warn-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
     <div class="rounded-2xl border border-amber-900/50 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
         <div class="flex items-start gap-3">
@@ -22,14 +22,33 @@
             <div>
                 <h3 class="font-display text-base text-amber-100">Пароль уже используется</h3>
                 <p class="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Такой пароль уже привязан к Vault. Вы войдёте в <strong class="text-slate-300">существующий</strong> аккаунт —
-                    возможно, чужой. Чужие фото всё равно не откроются: ключ <code class="text-violet-300">#...</code> только у загрузившего.
+                    Вы войдёте в существующий Vault. Чужие фото не откроются — ключ <code class="text-violet-300">#...</code> только у загрузившего.
                 </p>
             </div>
         </div>
         <div class="flex flex-col sm:flex-row gap-2">
             <button type="button" id="warn-confirm" class="fp-btn-primary flex-1 py-2.5 rounded-xl text-xs text-white">Войти всё равно</button>
             <button type="button" id="warn-cancel" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модал: подтверждение удаления -->
+<div id="vault-confirm-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
+    <div class="rounded-2xl border border-red-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="flex items-start gap-3">
+            <i class="fa-solid fa-fire-flame-curved text-red-400 text-xl mt-0.5" id="confirm-icon"></i>
+            <div>
+                <h3 class="font-display text-base text-red-100" id="confirm-title">Удалить?</h3>
+                <p class="text-xs text-slate-400 mt-2 leading-relaxed" id="confirm-text"></p>
+            </div>
+        </div>
+        <div id="confirm-account-extra" class="hidden">
+            <input type="password" id="confirm-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль Vault для подтверждения" autocomplete="current-password">
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+            <button type="button" id="confirm-yes" class="flex-1 py-2.5 rounded-xl text-xs font-medium bg-red-900/50 hover:bg-red-900/70 border border-red-700/50 text-red-100">Подтвердить</button>
+            <button type="button" id="confirm-no" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
         </div>
     </div>
 </div>
@@ -44,23 +63,12 @@
             <i class="fa-solid fa-plus mr-1"></i>Создать новый
         </button>
     </div>
-    <p class="text-[10px] text-slate-600">«Создать» требует уникальный пароль. «Войти» — если Vault уже был.</p>
 </div>
 
 <div id="vault-foreign" class="hidden rounded-2xl border border-amber-900/40 bg-amber-950/15 p-4 sm:p-5 space-y-3 mb-4">
-    <div class="flex items-start gap-2">
-        <i class="fa-solid fa-user-lock text-amber-400 mt-0.5"></i>
-        <div>
-            <div class="text-sm font-medium text-amber-100">Чужой Vault на этом устройстве</div>
-            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Ключей расшифровки здесь нет — загрузка в эту библиотеку заблокирована.
-                Создай <strong class="text-slate-300">свой Vault</strong> с другим паролем.
-            </p>
-        </div>
-    </div>
-    <button type="button" id="vault-create-own" class="fp-btn-primary w-full py-2.5 rounded-xl text-xs text-white">
-        Создать свой Vault
-    </button>
+    <div class="text-sm font-medium text-amber-100"><i class="fa-solid fa-user-lock mr-1"></i> Чужой Vault</div>
+    <p class="text-[11px] text-slate-400 leading-relaxed">Удаление и загрузка недоступны. Создай свой Vault с другим паролем.</p>
+    <button type="button" id="vault-create-own" class="fp-btn-primary w-full py-2.5 rounded-xl text-xs text-white">Создать свой Vault</button>
 </div>
 
 <div id="vault-content" class="hidden space-y-4">
@@ -68,10 +76,45 @@
         <span class="text-xs text-violet-300/80 font-mono" id="vault-status">Vault активен</span>
         <button type="button" id="vault-logout" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1">Выйти</button>
     </div>
+
+    <!-- Панель управления (только владелец) -->
+    <div id="vault-manage-bar" class="hidden rounded-2xl border border-violet-950/80 bg-black/30 p-3 sm:p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" id="toggle-select-mode" class="text-[11px] px-3 py-1.5 rounded-lg border border-violet-500/30 text-violet-200 hover:bg-violet-900/20">
+                <i class="fa-solid fa-check-double mr-1"></i><span id="select-mode-label">Выбрать фото</span>
+            </button>
+            <span class="text-[10px] text-slate-500 font-mono" id="vault-photo-count"></span>
+        </div>
+        <div id="vault-selection-actions" class="hidden flex flex-wrap gap-2">
+            <button type="button" id="btn-delete-selected" class="text-[11px] px-3 py-2 rounded-lg border border-red-800/40 bg-red-950/20 text-red-300 hover:bg-red-950/40 disabled:opacity-40" disabled>
+                <i class="fa-solid fa-trash mr-1"></i>Удалить выбранные (<span id="selected-count">0</span>)
+            </button>
+            <button type="button" id="btn-select-all" class="text-[11px] px-3 py-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800">Все</button>
+            <button type="button" id="btn-select-none" class="text-[11px] px-3 py-2 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800">Снять</button>
+        </div>
+        <button type="button" id="btn-burn-all" class="w-full text-[11px] py-2.5 rounded-xl border border-amber-900/40 bg-amber-950/15 text-amber-200/90 hover:bg-amber-950/25">
+            <i class="fa-solid fa-fire-flame-curved mr-1"></i>Сжечь всё — удалить все фото из Vault
+        </button>
+    </div>
+
     <div id="vault-list" class="space-y-2"></div>
+
     <a href="/" id="vault-upload-link" class="fp-btn-secondary block text-center py-3 rounded-xl text-xs text-violet-200 no-underline">
         <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Загрузить новое фото
     </a>
+
+    <!-- Удаление аккаунта -->
+    <div id="vault-danger-zone" class="hidden fp-danger-zone rounded-2xl p-4 sm:p-5 space-y-3">
+        <div class="flex items-center gap-2 text-red-300/90 text-sm font-medium">
+            <i class="fa-solid fa-skull-crossbones text-red-400/80"></i> Опасная зона
+        </div>
+        <p class="text-[11px] text-slate-500 leading-relaxed">
+            Удалит Vault, все фото в библиотеке и ссылки на сервере. Ключи в браузере останутся, но файлы станут недоступны.
+        </p>
+        <button type="button" id="btn-delete-account" class="w-full py-2.5 rounded-xl text-[11px] border border-red-800/50 bg-red-950/30 text-red-300 hover:bg-red-950/50">
+            Удалить аккаунт Vault навсегда
+        </button>
+    </div>
 </div>
 {% endblock %}
 
@@ -82,63 +125,165 @@
     const listEl = document.getElementById('vault-list');
     let pendingPassword = '';
     let pendingIntent = 'login';
+    let currentPhotos = [];
+    let selectMode = false;
+    let selectedIds = new Set();
+    let isOwner = false;
+    let confirmAction = null;
 
     document.getElementById('vault-disclaimer-text').textContent = FlowPhotoUpload.VAULT_DISCLAIMER;
 
-    function showForeignUi(isForeign) {
-        document.getElementById('vault-foreign').classList.toggle('hidden', !isForeign);
-        const link = document.getElementById('vault-upload-link');
-        if (link) link.classList.toggle('hidden', isForeign);
-        document.getElementById('vault-status').textContent = isForeign
-            ? 'Vault (только просмотр списка)'
-            : 'Vault активен — можно загружать';
+    function showForeignUi(foreign) {
+        document.getElementById('vault-foreign').classList.toggle('hidden', !foreign);
+        document.getElementById('vault-upload-link').classList.toggle('hidden', foreign);
+        document.getElementById('vault-manage-bar').classList.toggle('hidden', foreign || !isOwner);
+        document.getElementById('vault-danger-zone').classList.toggle('hidden', foreign || !isOwner);
+        document.getElementById('vault-status').textContent = foreign
+            ? 'Vault (только просмотр)'
+            : (isOwner ? 'Твой Vault' : 'Vault активен');
+    }
+
+    function updateSelectionUi() {
+        const n = selectedIds.size;
+        document.getElementById('selected-count').textContent = n;
+        document.getElementById('btn-delete-selected').disabled = n === 0;
+    }
+
+    function toggleSelect(id, checked) {
+        if (checked) selectedIds.add(id); else selectedIds.delete(id);
+        updateSelectionUi();
+        const card = listEl.querySelector(`[data-id="${id}"]`);
+        if (card) card.classList.toggle('selected', checked);
     }
 
     function renderPhotos(photos) {
+        currentPhotos = photos;
+        document.getElementById('vault-photo-count').textContent = photos.length
+            ? `${photos.length} фото` : '';
+
         if (!photos.length) {
-            listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Пока пусто</p>';
+            listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Пока пусто — загрузи фото с активным Vault</p>';
+            document.getElementById('btn-burn-all').disabled = true;
             return;
         }
+        document.getElementById('btn-burn-all').disabled = false;
+
         listEl.innerHTML = photos.map(p => {
             const url = p.fullUrl;
-            const keyHint = p.hasLocalKey
-                ? ''
-                : '<span class="text-[10px] text-amber-500/90 block mt-0.5">Нет ключа на этом устройстве</span>';
+            const checked = selectedIds.has(p.short_id);
+            const checkHtml = (selectMode && isOwner)
+                ? `<input type="checkbox" class="fp-vault-check" data-check="${p.short_id}" ${checked ? 'checked' : ''}>`
+                : '';
+            const keyHint = p.hasLocalKey ? '' : '<span class="text-[10px] text-amber-500/90 block mt-0.5">Нет ключа здесь</span>';
             const openBtn = url
                 ? `<a href="${url}" class="py-1.5 px-3 text-[10px] border border-violet-500/40 rounded-lg text-violet-200 no-underline">Открыть</a>`
-                : `<span class="text-[10px] text-amber-500/80">Ключ недоступен</span>`;
-            return `<div class="rounded-xl border border-violet-950/80 bg-black/40 p-3 flex flex-wrap items-center gap-2 justify-between">
+                : `<span class="text-[10px] text-amber-500/80">Нет ключа</span>`;
+            const delBtn = (isOwner && !selectMode)
+                ? `<button type="button" class="del-one py-1.5 px-2 text-[10px] text-red-400/80 hover:text-red-300" data-id="${p.short_id}" title="Удалить"><i class="fa-solid fa-trash"></i></button>`
+                : '';
+            return `<div class="fp-vault-card rounded-xl border border-violet-950/80 bg-black/40 p-3 flex flex-wrap items-center gap-2 ${checked ? 'selected' : ''}" data-id="${p.short_id}">
+                ${checkHtml}
                 <div class="min-w-0 flex-1">
-                    <div class="text-xs text-slate-300 truncate">${p.original_name}</div>
-                    <div class="text-[9px] text-slate-500 font-mono">${p.short_id} · просмотров: ${p.view_count}</div>
+                    <div class="text-xs text-slate-300 truncate">${escapeHtml(p.original_name)}</div>
+                    <div class="text-[9px] text-slate-500 font-mono">${p.short_id} · ${p.view_count} просм.</div>
                     ${keyHint}
                 </div>
-                <div class="flex gap-2 shrink-0">${openBtn}
-                    ${url ? `<button type="button" class="copy-vault py-1.5 px-2 text-[10px] text-slate-400" data-url="${url.replace(/"/g,'&quot;')}">⎘</button>` : ''}
+                <div class="flex gap-1.5 shrink-0">${openBtn}
+                    ${url ? `<button type="button" class="copy-vault py-1.5 px-2 text-[10px] text-slate-400" data-url="${url.replace(/"/g,'&quot;')}"><i class="fa-solid fa-copy"></i></button>` : ''}
+                    ${delBtn}
                 </div>
             </div>`;
         }).join('');
+
+        listEl.querySelectorAll('.fp-vault-check').forEach(cb => {
+            cb.onchange = () => toggleSelect(cb.dataset.check, cb.checked);
+        });
         listEl.querySelectorAll('.copy-vault').forEach(btn => {
             btn.onclick = () => navigator.clipboard.writeText(btn.dataset.url).then(() => showToast('Скопировано'));
         });
+        listEl.querySelectorAll('.del-one').forEach(btn => {
+            btn.onclick = () => showConfirm('delete-one', btn.dataset.id);
+        });
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function showConfirm(type, payload) {
+        confirmAction = { type, payload };
+        const extra = document.getElementById('confirm-account-extra');
+        extra.classList.add('hidden');
+        document.getElementById('confirm-password').value = '';
+
+        if (type === 'delete-one') {
+            document.getElementById('confirm-title').textContent = 'Удалить фото?';
+            document.getElementById('confirm-text').textContent = 'Файл исчезнет с сервера. Ссылка перестанет работать.';
+        } else if (type === 'delete-batch') {
+            document.getElementById('confirm-title').textContent = `Удалить ${payload} фото?`;
+            document.getElementById('confirm-text').textContent = 'Выбранные файлы будут уничтожены на сервере без восстановления.';
+        } else if (type === 'burn-all') {
+            document.getElementById('confirm-title').textContent = 'Сжечь всё?';
+            document.getElementById('confirm-text').textContent = `Будет удалено ${currentPhotos.length} фото. Все ссылки станут мёртвыми.`;
+        } else if (type === 'delete-account') {
+            document.getElementById('confirm-title').textContent = 'Удалить аккаунт Vault?';
+            document.getElementById('confirm-text').textContent = 'Vault, все фото и пароль будут стёрты навсегда.';
+            extra.classList.remove('hidden');
+        }
+        document.getElementById('vault-confirm-modal').classList.remove('hidden');
+    }
+
+    async function runConfirm() {
+        const act = confirmAction;
+        document.getElementById('vault-confirm-modal').classList.add('hidden');
+        confirmAction = null;
+        if (!act) return;
+        try {
+            if (act.type === 'delete-one') {
+                await FlowPhotoVault.vaultDeletePhoto(act.payload);
+                selectedIds.delete(act.payload);
+                showToast('Фото удалено');
+            } else if (act.type === 'delete-batch') {
+                const ids = [...selectedIds];
+                await FlowPhotoVault.vaultDeleteBatch(ids);
+                ids.forEach(id => selectedIds.delete(id));
+                showToast(`Удалено: ${ids.length}`);
+            } else if (act.type === 'burn-all') {
+                const r = await FlowPhotoVault.vaultBurnAll();
+                selectedIds.clear();
+                FlowPhotoUpload.removeVaultLinks(currentPhotos.map(p => p.short_id));
+                showToast(`Сожжено: ${r.deleted_count || 0}`);
+            } else if (act.type === 'delete-account') {
+                const pwd = document.getElementById('confirm-password').value;
+                if (pwd.length < 4) { showToast('Введи пароль'); return; }
+                await FlowPhotoVault.vaultDeleteAccount(pwd);
+                selectedIds.clear();
+                selectMode = false;
+                document.getElementById('vault-content').classList.add('hidden');
+                document.getElementById('vault-login').classList.remove('hidden');
+                showToast('Аккаунт удалён');
+                return;
+            }
+            await loadVault();
+        } catch (e) {
+            showToast(e.message || 'Ошибка');
+        }
     }
 
     async function loadVault() {
         const trust = await FlowPhotoUpload.refreshVaultState();
+        isOwner = trust === 'owner';
         showForeignUi(trust === 'foreign');
         const photos = FlowPhotoVault.enrichWithLocalLinks(await FlowPhotoVault.vaultFetchPhotos());
         renderPhotos(photos);
+        updateSelectionUi();
     }
 
     function showVaultContent() {
         document.getElementById('vault-login').classList.add('hidden');
         document.getElementById('vault-content').classList.remove('hidden');
-    }
-
-    function showWarnModal(pwd, intent) {
-        pendingPassword = pwd;
-        pendingIntent = intent;
-        document.getElementById('vault-warn-modal').classList.remove('hidden');
     }
 
     async function doLogin(pwd, intent) {
@@ -148,60 +293,78 @@
         await loadVault();
     }
 
-    async function handleAuth(intent) {
+    document.getElementById('toggle-select-mode').addEventListener('click', () => {
+        selectMode = !selectMode;
+        selectedIds.clear();
+        document.getElementById('vault-selection-actions').classList.toggle('hidden', !selectMode);
+        document.getElementById('select-mode-label').textContent = selectMode ? 'Готово' : 'Выбрать фото';
+        renderPhotos(currentPhotos);
+        updateSelectionUi();
+    });
+
+    document.getElementById('btn-select-all').addEventListener('click', () => {
+        currentPhotos.forEach(p => selectedIds.add(p.short_id));
+        renderPhotos(currentPhotos);
+        updateSelectionUi();
+    });
+    document.getElementById('btn-select-none').addEventListener('click', () => {
+        selectedIds.clear();
+        renderPhotos(currentPhotos);
+        updateSelectionUi();
+    });
+    document.getElementById('btn-delete-selected').addEventListener('click', () => {
+        if (!selectedIds.size) return;
+        showConfirm('delete-batch', selectedIds.size);
+    });
+    document.getElementById('btn-burn-all').addEventListener('click', () => showConfirm('burn-all'));
+    document.getElementById('btn-delete-account').addEventListener('click', () => showConfirm('delete-account'));
+
+    document.getElementById('confirm-yes').addEventListener('click', runConfirm);
+    document.getElementById('confirm-no').addEventListener('click', () => {
+        document.getElementById('vault-confirm-modal').classList.add('hidden');
+        confirmAction = null;
+    });
+
+    document.getElementById('vault-login-btn').addEventListener('click', async () => {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
         try {
-            if (intent === 'create') {
-                await doLogin(pwd, 'create');
+            if (await FlowPhotoVault.checkPasswordExists(pwd)) {
+                pendingPassword = pwd; pendingIntent = 'login';
+                document.getElementById('vault-warn-modal').classList.remove('hidden');
                 return;
             }
-            const exists = await FlowPhotoVault.checkPasswordExists(pwd);
-            if (exists) {
-                showWarnModal(pwd, 'login');
-                return;
-            }
-            await doLogin(pwd, 'auto');
-        } catch (e) {
-            showToast(e.message || 'Ошибка');
-        }
-    }
-
-    document.getElementById('vault-login-btn').addEventListener('click', () => handleAuth('login'));
-    document.getElementById('vault-create-btn').addEventListener('click', () => handleAuth('create'));
+            await doLogin(pwd, 'login');
+        } catch (e) { showToast(e.message); }
+    });
+    document.getElementById('vault-create-btn').addEventListener('click', async () => {
+        const pwd = document.getElementById('vault-password').value;
+        if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
+        try { await doLogin(pwd, 'create'); } catch (e) { showToast(e.message); }
+    });
     document.getElementById('warn-confirm').addEventListener('click', async () => {
         document.getElementById('vault-warn-modal').classList.add('hidden');
-        try {
-            await doLogin(pendingPassword, pendingIntent);
-        } catch (e) {
-            showToast(e.message || 'Ошибка');
-        }
+        try { await doLogin(pendingPassword, pendingIntent); } catch (e) { showToast(e.message); }
     });
     document.getElementById('warn-cancel').addEventListener('click', () => {
         document.getElementById('vault-warn-modal').classList.add('hidden');
-        pendingPassword = '';
     });
 
     document.getElementById('vault-logout').addEventListener('click', () => {
         FlowPhotoUpload.clearVaultSession();
+        selectMode = false; selectedIds.clear();
         document.getElementById('vault-content').classList.add('hidden');
         document.getElementById('vault-foreign').classList.add('hidden');
         document.getElementById('vault-login').classList.remove('hidden');
         showToast('Выход');
     });
-
     document.getElementById('vault-create-own').addEventListener('click', () => {
-        FlowPhotoUpload.clearVaultSession();
+        FlowPhotoUpload.clearVaultSession(true);
         document.getElementById('vault-content').classList.add('hidden');
         document.getElementById('vault-foreign').classList.add('hidden');
         document.getElementById('vault-login').classList.remove('hidden');
         document.getElementById('vault-password').value = '';
-        document.getElementById('vault-password').focus();
-        showToast('Придумай новый пароль и нажми «Создать новый»');
-    });
-
-    document.getElementById('vault-password').addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('vault-login-btn').click();
+        showToast('Новый пароль → «Создать новый»');
     });
 
     (async () => {

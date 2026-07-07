@@ -56,7 +56,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.1.0",
+    version="3.2.0",
 )
 
 
@@ -372,15 +372,65 @@ async def vault_add_photo(
 
 
 @app.delete("/api/vault/photos/{short_id}")
-async def vault_remove_photo(
+async def vault_delete_photo(
     short_id: str,
     x_vault_token: str | None = Header(default=None),
+    x_vault_upload_claim: str | None = Header(default=None),
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
         raise HTTPException(status_code=401, detail="Нужен вход в Vault")
-    vault_mod.remove_from_vault(vault_id, short_id)
-    return {"ok": True}
+    if not is_valid_short_id(short_id):
+        raise HTTPException(status_code=400, detail="Неверный ID")
+    if not vault_mod.delete_vault_photo_permanent(vault_id, short_id, x_vault_upload_claim):
+        raise HTTPException(status_code=403, detail="Нет прав или фото не найдено")
+    return {"ok": True, "deleted": short_id}
+
+
+@app.post("/api/vault/photos/delete-batch")
+async def vault_delete_batch(
+    short_ids: str = Form(...),
+    x_vault_token: str | None = Header(default=None),
+    x_vault_upload_claim: str | None = Header(default=None),
+):
+    vault_id = vault_mod.resolve_token(x_vault_token)
+    if not vault_id:
+        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+    ids = [s.strip() for s in short_ids.split(",") if s.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="Не выбрано ни одного фото")
+    deleted = vault_mod.delete_vault_photos_batch(vault_id, ids, x_vault_upload_claim)
+    if deleted == 0:
+        raise HTTPException(status_code=403, detail="Нет прав на удаление")
+    return {"ok": True, "deleted_count": deleted}
+
+
+@app.post("/api/vault/burn-all")
+async def vault_burn_all(
+    x_vault_token: str | None = Header(default=None),
+    x_vault_upload_claim: str | None = Header(default=None),
+):
+    vault_id = vault_mod.resolve_token(x_vault_token)
+    if not vault_id:
+        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+    deleted = vault_mod.burn_all_vault_photos(vault_id, x_vault_upload_claim)
+    if deleted == 0 and vault_mod.list_vault_photos(vault_id):
+        raise HTTPException(status_code=403, detail="Нет прав на удаление")
+    return {"ok": True, "deleted_count": deleted}
+
+
+@app.delete("/api/vault/account")
+async def vault_delete_account(
+    password: str = Form(...),
+    x_vault_token: str | None = Header(default=None),
+    x_vault_upload_claim: str | None = Header(default=None),
+):
+    vault_id = vault_mod.resolve_token(x_vault_token)
+    if not vault_id:
+        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+    if not vault_mod.delete_vault_account(vault_id, password.strip(), x_vault_upload_claim):
+        raise HTTPException(status_code=403, detail="Неверный пароль или нет прав")
+    return {"ok": True, "deleted": True}
 
 
 @app.get("/health")
@@ -389,7 +439,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.1.0",
+        "version": "3.2.0",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,
