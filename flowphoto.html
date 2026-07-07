@@ -151,7 +151,7 @@
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-1.5 mb-6 p-1 rounded-2xl border border-violet-950/80 bg-black/30">
+        <div id="fp-tab-bar" class="flex gap-1.5 mb-6 p-1 rounded-2xl border border-violet-950/80 bg-black/30">
             <button type="button" onclick="showFpTab('send')" data-fp-tab="send" class="fp-tab active flex-1 text-xs sm:text-sm py-2.5 rounded-xl border border-transparent text-slate-400 transition-all">
                 <i class="fa-solid fa-upload mr-1 opacity-70"></i>Отправить
             </button>
@@ -209,11 +209,39 @@
                             </button>
                         </div>
                     </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 mb-1.5 block">Как передать?</label>
+                        <div class="fp-mode-segment">
+                            <button type="button" id="fp-delivery-file" onclick="setDeliveryMode('file')" class="fp-mode-btn fp-mode-active">
+                                <i class="fa-solid fa-file mr-1 opacity-70"></i>Файл / HTML
+                            </button>
+                            <button type="button" id="fp-delivery-host" onclick="setDeliveryMode('host')" class="fp-mode-btn">
+                                <i class="fa-solid fa-cloud-arrow-up mr-1 opacity-70"></i>Фотохостинг
+                            </button>
+                        </div>
+                    </div>
+                    <div id="fp-host-mode-hint" class="hidden rounded-xl border border-emerald-900/40 bg-emerald-950/15 px-3 py-2.5 text-[10px] text-slate-400 leading-relaxed">
+                        <i class="fa-solid fa-laptop text-emerald-400/70 mr-1"></i>
+                        Перед загрузкой запусти на ноуте <strong class="text-emerald-300">start-host.bat</strong>.
+                        Фото сохранится в GitHub в зашифрованном виде. Получатель откроет <strong class="text-violet-300">одну ссылку</strong> — увидит фото в браузере.
+                    </div>
                     <div id="fp-link-mode-hint" class="hidden rounded-xl border border-violet-900/40 bg-violet-950/15 px-3 py-2.5 text-[10px] text-slate-400 leading-relaxed">
                         <i class="fa-solid fa-shield-halved text-violet-400/70 mr-1"></i>
-                        Ключ сгенерируется сам (длинный случайный). Получатель откроет фото по <strong class="text-violet-300">ссылке + файлу</strong> — фразу вводить не нужно.
-                        Без ссылки файл бесполезен — так и задумано.
+                        Ключ в ссылке (случайный). С фотохостингом — только ссылка. С файлом — ссылка + файл.
                     </div>
+                    <details id="fp-host-settings" class="hidden rounded-xl border border-violet-950/80 bg-black/25 px-3 py-2 text-[10px] text-slate-500">
+                        <summary class="cursor-pointer text-slate-400 py-1">Настройки хоста (обычно не трогать)</summary>
+                        <div class="space-y-2 pt-2 pb-1">
+                            <label class="block">Сервер загрузки (ноут)</label>
+                            <input type="url" id="fp-host-api-url" placeholder="http://127.0.0.1:8787"
+                                   class="w-full bg-black/50 border border-violet-950 rounded-lg px-2 py-1.5 font-mono text-[10px] outline-none focus:border-violet-500/40"
+                                   onchange="saveHostSettings()">
+                            <label class="block">Папка на сайте (для просмотра)</label>
+                            <input type="url" id="fp-storage-public-base" placeholder="авто"
+                                   class="w-full bg-black/50 border border-violet-950 rounded-lg px-2 py-1.5 font-mono text-[10px] outline-none focus:border-violet-500/40"
+                                   onchange="saveHostSettings()">
+                        </div>
+                    </details>
                     <div id="fp-passphrase-fields" class="grid sm:grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] text-slate-500 mb-1 block">Секретная фраза</label>
@@ -238,7 +266,7 @@
                             <option value="30d">30 дней</option>
                             <option value="never">Без срока</option>
                         </select>
-                        <p class="text-[10px] text-slate-600 mt-1">Пока без сервера — срок только в локальном сейфе. В файле .flowphoto дата тоже записывается.</p>
+                        <p class="text-[10px] text-slate-600 mt-1">На фотохостинге срок в метаданных (автоудаление с сервера — позже).</p>
                     </div>
                     <button type="button" id="fp-encrypt-btn" onclick="encryptAndPackage()" class="fp-btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white">
                         <i class="fa-solid fa-lock mr-1"></i>Зашифровать и подготовить
@@ -279,16 +307,45 @@
                         <div class="text-[10px] text-slate-500">Страница загрузки файла (без ключа)</div>
                         <input type="text" readonly id="fp-receive-page-url" class="w-full bg-transparent text-[10px] font-mono text-violet-300/80 outline-none truncate">
                     </div>
-                    <div id="fp-future-server-block" class="hidden rounded-xl border border-dashed border-amber-900/40 bg-amber-950/10 px-3 py-2.5 space-y-1">
-                        <div class="text-[10px] text-amber-400/80">Будущая ссылка на хосте (Фаза B — только файл по ссылке)</div>
-                        <code id="fp-future-server-url" class="block text-[10px] font-mono text-amber-200/70 break-all"></code>
+                    <div id="fp-host-upload-block" class="hidden rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-3 space-y-2">
+                        <p class="text-[10px] text-emerald-300/90">Фотохостинг: нажми загрузку — файл уйдёт в GitHub (шифротекст).</p>
+                        <button type="button" id="fp-upload-host-btn" onclick="uploadToHost()" class="fp-btn-primary w-full py-2.5 rounded-xl text-xs font-semibold text-white">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Загрузить на хост
+                        </button>
+                        <p id="fp-host-upload-status" class="hidden text-[10px] text-emerald-400/80 font-mono"></p>
                     </div>
-                    <div class="rounded-xl border border-dashed border-violet-900/50 bg-violet-950/10 px-3 py-2.5 flex items-start gap-2">
-                        <i class="fa-solid fa-hourglass-half text-violet-500/50 text-xs mt-0.5"></i>
-                        <p class="text-[10px] text-slate-500 leading-relaxed"><span class="text-violet-400/80">Скоро (Cloudflare):</span> короткая ссылка — открыл и фото уже там, без отдельного файла. Случайный ID в URL, чтобы никто не угадал.</p>
+                    <div id="fp-host-link-block" class="hidden rounded-xl border border-emerald-500/35 bg-emerald-950/20 px-3 py-2.5 space-y-1">
+                        <div class="text-[10px] text-emerald-300/90 font-medium">Ссылка на фото (отправь получателю)</div>
+                        <input type="text" readonly id="fp-host-photo-url" class="w-full bg-transparent text-[10px] font-mono text-emerald-100 outline-none break-all">
+                        <button type="button" onclick="copyHostPhotoLink()" class="text-[10px] text-emerald-400/80 hover:text-emerald-300">Скопировать ссылку</button>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- VIEW (фотохостинг по ссылке) -->
+        <div id="fp-panel-view" class="fp-panel space-y-4">
+            <div id="fp-view-loading" class="rounded-2xl border border-violet-950/80 bg-black/40 p-10 text-center">
+                <i class="fa-solid fa-circle-notch fa-spin text-violet-400 text-2xl mb-3"></i>
+                <p class="text-sm text-slate-400">Загружаем зашифрованное фото с хоста…</p>
+            </div>
+            <div id="fp-view-pass-block" class="hidden rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
+                <p class="text-xs text-slate-400">Фото на хосте защищено фразой. Введи её, чтобы открыть.</p>
+                <input type="password" id="fp-view-pass" placeholder="Секретная фраза"
+                       class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-violet-500/50 font-mono">
+                <button type="button" onclick="decryptHostedPhoto()" class="fp-btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white">
+                    <i class="fa-solid fa-unlock mr-1"></i>Открыть фото
+                </button>
+            </div>
+            <div id="fp-view-result" class="hidden rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-4">
+                <div class="text-[10px] text-emerald-400/80 font-mono mb-3 uppercase tracking-wider">FlowPhoto · хостинг</div>
+                <div class="flex justify-center mb-3">
+                    <img id="fp-view-img" alt="Фото" class="rounded-xl max-h-[70vh] max-w-full object-contain">
+                </div>
+                <div id="fp-view-meta" class="text-[10px] text-slate-500 font-mono space-y-0.5"></div>
+            </div>
+            <p id="fp-view-error" class="hidden text-xs text-red-400 text-center"></p>
+            <a href="flowphoto.html" class="inline-block text-xs text-violet-400/80 hover:text-violet-300 mt-2">← Вернуться в FlowPhoto</a>
         </div>
 
         <!-- RECEIVE -->
@@ -347,8 +404,8 @@
 
         <!-- Footer -->
         <div class="mt-12 pt-6 border-t border-violet-950/50 text-center space-y-1">
-            <p class="text-[10px] text-slate-600 font-mono">ZERO-KNOWLEDGE · NO SERVER · PHASE A</p>
-            <p class="text-[10px] text-slate-700">Регистрация и живые ссылки — в следующей фазе</p>
+            <p class="text-[10px] text-slate-600 font-mono">ZERO-KNOWLEDGE · GITHUB HOST · ENCRYPTED AT REST</p>
+            <p class="text-[10px] text-slate-700">Инструкция: ФОТОХОСТИНГ.txt в папке проекта</p>
         </div>
     </main>
 
@@ -360,6 +417,9 @@
         const FP_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         const FP_DB_NAME = 'flowphoto_local';
         const FP_DB_VERSION = 1;
+        const FP_HOST_API_KEY = 'fp_host_api_url';
+        const FP_STORAGE_BASE_KEY = 'fp_storage_public_base';
+        const FP_DEFAULT_HOST_API = 'http://127.0.0.1:8787';
 
         let fpCurrentBlob = null;
         let fpCurrentMeta = null;
@@ -367,6 +427,8 @@
         let fpShareId = null;
         let fpLinkKey = null;
         let fpProtectionMode = 'passphrase';
+        let fpDeliveryMode = 'file';
+        let fpHostedPackage = null;
         let fpDb = null;
 
         function showToast(msg) {
@@ -381,7 +443,53 @@
         function showFpTab(tab) {
             document.querySelectorAll('.fp-tab').forEach(b => b.classList.toggle('active', b.dataset.fpTab === tab));
             document.querySelectorAll('.fp-panel').forEach(p => p.classList.toggle('active', p.id === 'fp-panel-' + tab));
+            document.getElementById('fp-tab-bar')?.classList.toggle('hidden', tab === 'view');
             if (tab === 'vault') renderVault();
+        }
+
+        function getHostApiUrl() {
+            return (localStorage.getItem(FP_HOST_API_KEY) || FP_DEFAULT_HOST_API).replace(/\/$/, '');
+        }
+
+        function getStoragePublicBase() {
+            const saved = localStorage.getItem(FP_STORAGE_BASE_KEY);
+            if (saved) return saved.replace(/\/?$/, '/');
+            const u = new URL(window.location.href);
+            const path = u.pathname.replace(/flowphoto\.html$/i, 'flowphoto-storage/');
+            return u.origin + path;
+        }
+
+        function saveHostSettings() {
+            const api = document.getElementById('fp-host-api-url')?.value?.trim();
+            const base = document.getElementById('fp-storage-public-base')?.value?.trim();
+            if (api) localStorage.setItem(FP_HOST_API_KEY, api);
+            if (base) localStorage.setItem(FP_STORAGE_BASE_KEY, base);
+            showToast('Настройки хоста сохранены');
+        }
+
+        function loadHostSettings() {
+            const apiEl = document.getElementById('fp-host-api-url');
+            const baseEl = document.getElementById('fp-storage-public-base');
+            if (apiEl) apiEl.value = localStorage.getItem(FP_HOST_API_KEY) || FP_DEFAULT_HOST_API;
+            if (baseEl) baseEl.value = localStorage.getItem(FP_STORAGE_BASE_KEY) || '';
+        }
+
+        function setDeliveryMode(mode) {
+            fpDeliveryMode = mode === 'host' ? 'host' : 'file';
+            document.getElementById('fp-delivery-file')?.classList.toggle('fp-mode-active', fpDeliveryMode === 'file');
+            document.getElementById('fp-delivery-host')?.classList.toggle('fp-mode-active', fpDeliveryMode === 'host');
+            document.getElementById('fp-host-mode-hint')?.classList.toggle('hidden', fpDeliveryMode !== 'host');
+            document.getElementById('fp-host-settings')?.classList.toggle('hidden', fpDeliveryMode !== 'host');
+        }
+
+        function getPhotoHostViewUrl(slug, key) {
+            const u = new URL(window.location.href);
+            u.pathname = u.pathname.replace(/[^/]+$/, 'flowphoto.html');
+            u.search = '';
+            let hash = 'p/' + slug;
+            if (key) hash += '&k=' + encodeURIComponent(key);
+            u.hash = hash;
+            return u.toString();
         }
 
         function bufToB64(buf) {
@@ -492,15 +600,6 @@
             return u.toString();
         }
 
-        function getFutureServerLink(slug) {
-            const u = new URL(window.location.href);
-            const path = u.pathname.replace(/[^/]+$/, 'flowphoto.html');
-            u.pathname = path;
-            u.search = '';
-            u.hash = 'p/' + slug;
-            return u.toString();
-        }
-
         function copyViewLink() {
             const url = document.getElementById('fp-view-link-url')?.value;
             if (!url) return;
@@ -509,41 +608,193 @@
 
         function updateShareBlockUI() {
             const isLink = fpCurrentPackage?.meta?.protection === 'link';
-            document.getElementById('fp-share-passphrase-note')?.classList.toggle('hidden', isLink);
-            document.getElementById('fp-share-link-note')?.classList.toggle('hidden', !isLink);
-            document.getElementById('fp-copy-view-link-btn')?.classList.toggle('hidden', !isLink);
-            document.getElementById('fp-view-link-block')?.classList.toggle('hidden', !isLink || !fpLinkKey);
-            document.getElementById('fp-future-server-block')?.classList.toggle('hidden', !isLink);
+            const isHost = fpDeliveryMode === 'host' || fpCurrentPackage?.meta?.delivery === 'host';
+            const hosted = fpCurrentPackage?.meta?.hosted;
+            const slug = fpCurrentPackage?.meta?.serverSlug;
 
-            if (isLink && fpLinkKey) {
-                const slug = fpCurrentPackage?.meta?.serverSlug;
+            document.getElementById('fp-share-passphrase-note')?.classList.toggle('hidden', isLink || isHost);
+            document.getElementById('fp-share-link-note')?.classList.toggle('hidden', !isLink && !isHost);
+            document.getElementById('fp-copy-view-link-btn')?.classList.toggle('hidden', isHost || !isLink);
+            document.getElementById('fp-view-link-block')?.classList.toggle('hidden', isHost || !isLink || !fpLinkKey);
+            document.getElementById('fp-host-upload-block')?.classList.toggle('hidden', !isHost || hosted);
+            document.getElementById('fp-host-link-block')?.classList.toggle('hidden', !isHost || !slug);
+
+            if (isHost && slug) {
+                const photoUrl = getPhotoHostViewUrl(slug, (isLink && fpLinkKey) ? fpLinkKey : null);
+                const hostUrlEl = document.getElementById('fp-host-photo-url');
+                if (hostUrlEl) hostUrlEl.value = photoUrl;
+                const statusEl = document.getElementById('fp-host-upload-status');
+                if (statusEl && hosted) {
+                    statusEl.textContent = '✓ На хосте · ID ' + slug;
+                    statusEl.classList.remove('hidden');
+                }
+            }
+
+            if (!isHost && isLink && fpLinkKey) {
                 const viewUrl = getViewLinkUrl(fpLinkKey, slug);
                 const viewEl = document.getElementById('fp-view-link-url');
                 if (viewEl) viewEl.value = viewUrl;
-                const futureEl = document.getElementById('fp-future-server-url');
-                if (futureEl && slug) futureEl.textContent = getFutureServerLink(slug);
             }
             updateReceivePageUrlFields();
         }
 
+        function copyHostPhotoLink() {
+            const url = document.getElementById('fp-host-photo-url')?.value;
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => showToast('Ссылка на фото скопирована'));
+        }
+
+        async function uploadToHost() {
+            if (!fpCurrentPackage?.meta?.serverSlug) {
+                showToast('Сначала зашифруй фото');
+                return;
+            }
+            const btn = document.getElementById('fp-upload-host-btn');
+            const slug = fpCurrentPackage.meta.serverSlug;
+            btn.disabled = true;
+            const prev = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Загрузка…';
+            try {
+                const res = await fetch(getHostApiUrl() + '/api/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ package: fpCurrentPackage, slug, pushGit: true })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+                fpCurrentPackage.meta.hosted = true;
+                fpCurrentPackage.meta.hostedAt = new Date().toISOString();
+                fpCurrentPackage.meta.delivery = 'host';
+                updateShareBlockUI();
+                const gitMsg = data.git?.pushed ? 'Залито на GitHub — ссылка через 1–2 мин' : (data.git?.message || 'Сохранено локально');
+                showToast(gitMsg);
+            } catch (e) {
+                console.error(e);
+                showToast('Не удалось: запусти start-host.bat на ноуте');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = prev;
+            }
+        }
+
+        async function fetchHostedPackage(slug) {
+            const urls = [
+                getStoragePublicBase() + slug + '.json',
+                getHostApiUrl() + '/storage/' + slug + '.json'
+            ];
+            let lastErr = null;
+            for (const url of urls) {
+                try {
+                    const r = await fetch(url, { cache: 'no-store' });
+                    if (r.ok) return await r.json();
+                    lastErr = new Error('HTTP ' + r.status);
+                } catch (e) {
+                    lastErr = e;
+                }
+            }
+            throw lastErr || new Error('Фото не найдено на хосте');
+        }
+
+        function showHostedViewState(state) {
+            document.getElementById('fp-view-loading')?.classList.toggle('hidden', state !== 'loading');
+            document.getElementById('fp-view-pass-block')?.classList.toggle('hidden', state !== 'pass');
+            document.getElementById('fp-view-result')?.classList.toggle('hidden', state !== 'done');
+            document.getElementById('fp-view-error')?.classList.toggle('hidden', state !== 'error');
+        }
+
+        function renderDecryptedPhoto(pkg, blob, meta, imgId, metaId) {
+            const img = document.getElementById(imgId);
+            const metaEl = document.getElementById(metaId);
+            if (img) img.src = URL.createObjectURL(blob);
+            if (metaEl) {
+                metaEl.innerHTML = [
+                    meta?.shareId && `ID: ${meta.shareId}`,
+                    meta?.serverSlug && `Хост ID: ${meta.serverSlug}`,
+                    meta?.name && `Файл: ${meta.name}`,
+                    meta?.width && `Размер: ${meta.width}×${meta.height}`,
+                    meta?.expiresAt && `Истекает: ${new Date(meta.expiresAt).toLocaleString('ru-RU')}`,
+                    'EXIF удалён · расшифровка в браузере'
+                ].filter(Boolean).join('<br>');
+            }
+        }
+
+        async function decryptHostedPhoto(passOverride) {
+            const errEl = document.getElementById('fp-view-error');
+            const pkg = fpHostedPackage;
+            if (!pkg) {
+                showHostedViewState('error');
+                if (errEl) { errEl.textContent = 'Нет данных для расшифровки'; errEl.classList.remove('hidden'); }
+                return;
+            }
+            const isLink = pkg.meta?.protection === 'link';
+            const pass = passOverride || window._fpLinkKeyFromHash || document.getElementById('fp-view-pass')?.value || '';
+            if (!pass) {
+                showHostedViewState('pass');
+                return;
+            }
+            showHostedViewState('loading');
+            try {
+                if (pkg.meta?.expiresAt && new Date(pkg.meta.expiresAt) < new Date()) {
+                    throw new Error('Срок действия истёк');
+                }
+                const { blob, meta } = await decryptPackage(pkg, pass);
+                showHostedViewState('done');
+                renderDecryptedPhoto(pkg, blob, meta, 'fp-view-img', 'fp-view-meta');
+            } catch (e) {
+                showHostedViewState('error');
+                if (errEl) {
+                    errEl.textContent = isLink ? 'Неверный ключ в ссылке или файл повреждён' : 'Неверная фраза или файл повреждён';
+                    errEl.classList.remove('hidden');
+                }
+            }
+        }
+
+        async function loadHostedPhoto(slug) {
+            showFpTab('view');
+            showHostedViewState('loading');
+            document.getElementById('fp-view-error')?.classList.add('hidden');
+            try {
+                fpHostedPackage = await fetchHostedPackage(slug);
+                if (fpHostedPackage.meta?.protection === 'link' && window._fpLinkKeyFromHash) {
+                    await decryptHostedPhoto(window._fpLinkKeyFromHash);
+                } else if (fpHostedPackage.meta?.protection === 'passphrase') {
+                    showHostedViewState('pass');
+                } else {
+                    await decryptHostedPhoto();
+                }
+            } catch (e) {
+                console.error(e);
+                showHostedViewState('error');
+                const errEl = document.getElementById('fp-view-error');
+                if (errEl) {
+                    errEl.textContent = 'Фото не найдено. Подожди 1–2 мин после загрузки или проверь ссылку.';
+                    errEl.classList.remove('hidden');
+                }
+            }
+        }
+
         function parseLocationHash() {
             const raw = location.hash.slice(1);
-            const result = { tab: null, key: null, slug: null, serverOnly: false };
+            const result = { tab: null, key: null, slug: null };
             if (!raw) return result;
             if (raw === 'receive') {
                 result.tab = 'receive';
                 return result;
             }
             if (raw.startsWith('p/')) {
-                result.slug = raw.slice(2);
-                result.tab = 'receive';
-                result.serverOnly = true;
+                const rest = raw.slice(2);
+                const amp = rest.indexOf('&');
+                result.slug = amp >= 0 ? rest.slice(0, amp) : rest;
+                result.tab = 'view';
+                if (amp >= 0) {
+                    const params = new URLSearchParams(rest.slice(amp + 1));
+                    result.key = params.get('k');
+                }
                 return result;
             }
             const amp = raw.indexOf('&');
-            const base = amp >= 0 ? raw.slice(0, amp) : raw;
             const query = amp >= 0 ? raw.slice(amp + 1) : '';
-            if (base === 'receive' || raw.includes('receive')) result.tab = 'receive';
+            if (raw.startsWith('receive') || raw.includes('receive')) result.tab = 'receive';
             if (query) {
                 const params = new URLSearchParams(query);
                 result.key = params.get('k');
@@ -553,17 +804,18 @@
         }
 
         function applyHashToReceiveUI() {
-            const { tab, key, slug, serverOnly } = parseLocationHash();
-            if (tab === 'receive') showFpTab('receive');
+            const { tab, key, slug } = parseLocationHash();
             if (key) {
                 window._fpLinkKeyFromHash = key;
                 const passEl = document.getElementById('fp-receive-pass');
                 if (passEl) passEl.value = key;
                 updateReceivePassphraseUI('link');
-            } else if (serverOnly && slug) {
-                updateReceivePassphraseUI('passphrase');
-                showToast('Эта ссылка заработает после Фазы B (Cloudflare). Пока — файл + ссылка с ключом.');
             }
+            if (tab === 'view' && slug) {
+                loadHostedPhoto(slug);
+                return;
+            }
+            if (tab === 'receive') showFpTab('receive');
         }
 
         function updateReceivePassphraseUI(mode) {
@@ -611,6 +863,7 @@
             fpShareId = null;
             fpLinkKey = null;
             setProtectionMode('passphrase');
+            setDeliveryMode('file');
             document.getElementById('fp-process-block').classList.add('hidden');
             document.getElementById('fp-share-block').classList.add('hidden');
             document.getElementById('fp-passphrase').value = '';
@@ -738,7 +991,8 @@
             try {
                 const ttl = document.getElementById('fp-ttl').value;
                 fpShareId = generateShareId();
-                const serverSlug = fpProtectionMode === 'link' ? generateServerSlug() : null;
+                const needSlug = fpDeliveryMode === 'host' || fpProtectionMode === 'link';
+                const serverSlug = needSlug ? generateServerSlug() : null;
 
                 fpCurrentPackage = await buildEncryptedPackage(fpCurrentBlob, fpCurrentMeta, pass, {
                     shareId: fpShareId,
@@ -746,6 +1000,7 @@
                     ttlLabel: ttl,
                     variant: 'full',
                     protection,
+                    delivery: fpDeliveryMode,
                     serverSlug: serverSlug || undefined
                 });
 
@@ -755,9 +1010,13 @@
                 document.getElementById('fp-steps').innerHTML = '<span class="text-emerald-400">✓</span> <span class="text-violet-300">готово к передаче</span>';
                 updateShareBlockUI();
 
-                showToast(fpProtectionMode === 'link'
-                    ? 'Зашифровано. Скопируй ссылку с ключом + отправь файл'
-                    : 'Зашифровано и сохранено в сейф');
+                if (fpDeliveryMode === 'host') {
+                    showToast('Зашифровано → нажми «Загрузить на хост» (start-host.bat должен работать)');
+                } else {
+                    showToast(fpProtectionMode === 'link'
+                        ? 'Зашифровано. Скопируй ссылку с ключом + отправь файл'
+                        : 'Зашифровано и сохранено в сейф');
+                }
             } catch (e) {
                 showToast('Ошибка шифрования');
                 console.error(e);
@@ -1114,6 +1373,7 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
         });
 
         window.addEventListener('load', () => {
+            loadHostSettings();
             updateReceivePageUrlFields();
             applyHashToReceiveUI();
             purgeExpiredVault().catch(() => {});

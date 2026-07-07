@@ -25,15 +25,20 @@ $files = @(
     "flowphoto.html",
     "deploy.ps1",
     "deploy.bat",
+    "start-host.bat",
     "ДЕПЛОЙ.txt",
+    "ФОТОХОСТИНГ.txt",
     ".gitignore",
     "статус-проекта.txt",
     "план.txt",
     "обзор-проекта.txt",
-    "сложные-задачи-позже.txt"
+    "сложные-задачи-позже.txt",
+    "flowphoto-host/server.js",
+    "flowphoto-storage"
 )
 
 git add @files 2>$null
+git add flowphoto-storage/*.json 2>$null
 git add -u
 
 $status = git status --porcelain
