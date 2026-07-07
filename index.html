@@ -784,7 +784,7 @@
                     </button>
 
                     <!-- Support Button -->
-                    <a href="flowphoto.html" class="lg:hidden w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-800 text-violet-400" title="FlowPhoto">
+                    <a href="flowphoto.html" data-flowphoto-link class="lg:hidden w-10 h-10 flex items-center justify-center rounded-2xl hover:bg-slate-800 text-violet-400" title="FlowPhoto">
                         <i class="fa-solid fa-eye-low-vision text-lg"></i>
                     </a>
 
@@ -846,7 +846,7 @@
             <button type="button" onclick="mobileGo('flownote')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="flownote"><i class="fa-solid fa-pen-nib w-4 text-teal-400"></i>FlowNote</button>
             <button type="button" onclick="mobileGo('spark')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="spark"><i class="fa-solid fa-lightbulb w-4 text-amber-400"></i>Искра</button>
             <button type="button" onclick="mobileGo('utilities')" class="mobile-drawer-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm hover:bg-slate-800 text-left" data-mobile-drawer="utilities"><i class="fa-solid fa-toolbox w-4 text-violet-400"></i>Утилиты</button>
-            <a href="flowphoto.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm border border-violet-500/20 bg-violet-950/20 text-violet-200 mt-2"><i class="fa-solid fa-eye-low-vision w-4"></i>FlowPhoto</a>
+            <a href="flowphoto.html" data-flowphoto-link class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm border border-violet-500/20 bg-violet-950/20 text-violet-200 mt-2"><i class="fa-solid fa-eye-low-vision w-4"></i>FlowPhoto</a>
             <div class="border-t border-slate-800 my-3 pt-3 space-y-1">
                 <button type="button" onclick="mobileQuickNewNote()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-800 text-left"><i class="fa-solid fa-plus w-4 text-teal-400"></i>Новая заметка</button>
                 <button type="button" onclick="mobileOpenPalette()" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-800 text-left"><i class="fa-solid fa-terminal w-4 text-teal-400"></i>Команды</button>
@@ -882,7 +882,7 @@
                     <span>Утилиты</span>
                 </div>
 
-                <a href="flowphoto.html" class="nav-flowphoto flex items-center gap-x-3 px-4 py-3 text-sm font-medium cursor-pointer rounded-xl border border-violet-500/15 bg-violet-950/20 hover:border-violet-500/35 hover:bg-violet-950/35 transition-all group">
+                <a href="flowphoto.html" data-flowphoto-link class="nav-flowphoto flex items-center gap-x-3 px-4 py-3 text-sm font-medium cursor-pointer rounded-xl border border-violet-500/15 bg-violet-950/20 hover:border-violet-500/35 hover:bg-violet-950/35 transition-all group">
                     <span class="w-7 h-7 rounded-lg bg-violet-600/15 border border-violet-500/25 flex items-center justify-center shrink-0 group-hover:bg-violet-600/25">
                         <i class="fa-solid fa-eye-low-vision text-violet-400 text-xs"></i>
                     </span>
@@ -996,7 +996,7 @@
                         </div>
                     </div>
                     
-                    <a href="flowphoto.html" class="tool-card cursor-pointer border border-slate-800 hover:border-violet-500/50 bg-slate-900 rounded-3xl p-5 group block no-underline text-inherit">
+                    <a href="flowphoto.html" data-flowphoto-link class="tool-card cursor-pointer border border-slate-800 hover:border-violet-500/50 bg-slate-900 rounded-3xl p-5 group block no-underline text-inherit">
                         <div class="flex items-center gap-x-4">
                             <div class="w-11 h-11 bg-violet-600/10 text-violet-400 rounded-2xl flex items-center justify-center group-hover:bg-violet-600/20 transition-colors">
                                 <i class="fa-solid fa-eye-low-vision text-xl"></i>
@@ -4320,7 +4320,10 @@
                 { id: 'nav-utilities', label: 'Утилиты', keywords: 'утилиты пароль qr хеш base64', icon: 'fa-toolbox', shortcut: formatShortcut('utilities'), group: 'Навигация',
                   action: () => showSection('utilities') },
                 { id: 'nav-flowphoto', label: 'FlowPhoto', keywords: 'фото обмен exif шифрование flowphoto', icon: 'fa-eye-low-vision', shortcut: '', group: 'Навигация',
-                  action: () => { window.location.href = 'flowphoto.html'; } },
+                  action: () => {
+                    const u = window.FLOW_CONFIG?.flowPhotoUrl;
+                    window.location.href = u ? u.replace(/\/$/, '') + '/' : 'flowphoto.html';
+                  } },
                 { id: 'nav-calculator', label: 'Калькулятор', keywords: 'calc калькулятор считать крипто комиссии', icon: 'fa-calculator', shortcut: '', group: 'Навигация',
                   action: () => toggleCalculatorFromNav() },
                 { id: 'new-note', label: 'Новая заметка', keywords: 'создать написать flownote', icon: 'fa-plus', shortcut: formatShortcut('newNote'), group: 'Действия',
@@ -4640,5 +4643,6 @@
         // Expose some functions for debugging / future
         window.FlowNote = { showSection, generateIdea, updateDashboardStats, openCommandPalette };
     </script>
+    <script src="flow-config.js"></script>
 </body>
 </html>

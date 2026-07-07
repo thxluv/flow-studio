@@ -1,35 +1,50 @@
 """
-FlowPhoto Server — FastAPI backend для приватного обмена фото.
+FlowPhoto Server — публичный приватный обмен фото.
 
-Сервер хранит ТОЛЬКО зашифрованные файлы и метаданные.
-Ключ расшифровки передаётся только в hash-фрагменте ссылки (#...) на клиенте.
+Шифрование только в браузере (AES-GCM 256). Сервер хранит ciphertext в SQLite.
+Ключ — только в hash ссылки (#...), на сервер не передаётся.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.database import get_photo, init_db, insert_photo
+from app.database import DATA_DIR, get_encrypted_blob, get_photo, init_db, insert_photo
 from app.ids import generate_short_id, is_valid_short_id
 
-# --- Пути ---
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOADS_DIR = BASE_DIR / "uploads"
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-
 MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 МБ
+
+# Сайт FlowNote на GitHub Pages — для CORS (если понадобится API с другого origin)
+DEFAULT_ORIGINS = [
+    "https://thxluv.github.io",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]
+_extra = os.environ.get("FLOWPHOTO_CORS_ORIGINS", "")
+CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.strip()]
 
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="2.0.0",
+    version="2.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -41,22 +56,23 @@ def on_startup() -> None:
     init_db()
 
 
-# ---------------------------------------------------------------------------
-# Страницы (Jinja2)
-# ---------------------------------------------------------------------------
-
 @app.get("/", response_class=HTMLResponse)
 async def upload_page(request: Request) -> HTMLResponse:
-    """Главная: загрузка фото с drag & drop."""
     return templates.TemplateResponse(
         "upload.html",
-        {"request": request, "max_mb": MAX_FILE_BYTES // (1024 * 1024)},
+        {
+            "request": request,
+            "max_mb": MAX_FILE_BYTES // (1024 * 1024),
+            "flownote_url": os.environ.get(
+                "FLOWNOTE_PUBLIC_URL",
+                "https://thxluv.github.io/flow-studio/index.html",
+            ),
+        },
     )
 
 
 @app.get("/view/{short_id}", response_class=HTMLResponse)
 async def view_page(request: Request, short_id: str) -> HTMLResponse:
-    """Страница просмотра: JS берёт ключ из #hash и расшифровывает в браузере."""
     if not is_valid_short_id(short_id):
         raise HTTPException(status_code=404, detail="Неверный формат ссылки")
     photo = get_photo(short_id)
@@ -68,24 +84,15 @@ async def view_page(request: Request, short_id: str) -> HTMLResponse:
     )
 
 
-# ---------------------------------------------------------------------------
-# API
-# ---------------------------------------------------------------------------
-
 @app.post("/upload")
 async def upload_encrypted(
-    encrypted_file: UploadFile = File(..., description="IV (12 байт) + AES-GCM ciphertext"),
+    encrypted_file: UploadFile = File(...),
     mime_type: str = Form(...),
     original_name: str = Form("photo.jpg"),
 ):
-    """
-    Принимает уже зашифрованный файл с клиента.
-    Ключ на сервер НЕ передаётся.
-    """
     if not mime_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Разрешены только image/*")
 
-    # Уникальный ID (коллизии практически исключены)
     short_id = generate_short_id()
     for _ in range(5):
         if get_photo(short_id) is None:
@@ -94,30 +101,22 @@ async def upload_encrypted(
     else:
         raise HTTPException(status_code=500, detail="Не удалось сгенерировать ID")
 
-    dest = UPLOADS_DIR / f"{short_id}.bin"
+    chunks: list[bytes] = []
     total = 0
-    try:
-        with dest.open("wb") as out:
-            while True:
-                chunk = await encrypted_file.read(1024 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > MAX_FILE_BYTES:
-                    dest.unlink(missing_ok=True)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"Файл больше {MAX_FILE_BYTES // (1024 * 1024)} МБ",
-                    )
-                out.write(chunk)
-    except HTTPException:
-        raise
-    except OSError as exc:
-        dest.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail="Ошибка записи файла") from exc
+    while True:
+        chunk = await encrypted_file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Файл больше {MAX_FILE_BYTES // (1024 * 1024)} МБ",
+            )
+        chunks.append(chunk)
 
-    if total < 13:
-        dest.unlink(missing_ok=True)
+    payload = b"".join(chunks)
+    if len(payload) < 13:
         raise HTTPException(status_code=400, detail="Слишком маленький зашифрованный файл")
 
     safe_name = (original_name or "photo.jpg")[:255]
@@ -125,8 +124,8 @@ async def upload_encrypted(
         short_id=short_id,
         original_name=safe_name,
         mime_type=mime_type,
-        file_path=str(dest.relative_to(BASE_DIR)),
-        size_bytes=total,
+        encrypted_data=payload,
+        size_bytes=len(payload),
     )
 
     return JSONResponse(
@@ -142,7 +141,6 @@ async def upload_encrypted(
 
 @app.get("/info/{short_id}")
 async def photo_info(short_id: str):
-    """Публичные метаданные без ключа и без расшифрованного содержимого."""
     if not is_valid_short_id(short_id):
         raise HTTPException(status_code=404, detail="Не найдено")
     photo = get_photo(short_id)
@@ -160,19 +158,13 @@ async def photo_info(short_id: str):
 
 @app.get("/raw/{short_id}")
 async def raw_encrypted(short_id: str):
-    """Отдаёт зашифрованный blob (IV + ciphertext). Без ключа бесполезен."""
     if not is_valid_short_id(short_id):
         raise HTTPException(status_code=404, detail="Не найдено")
-    photo = get_photo(short_id)
-    if photo is None:
+    blob = get_encrypted_blob(short_id)
+    if blob is None:
         raise HTTPException(status_code=404, detail="Не найдено")
-
-    path = BASE_DIR / photo["file_path"]
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Файл отсутствует на диске")
-
-    return FileResponse(
-        path,
+    return Response(
+        content=blob,
         media_type="application/octet-stream",
         headers={
             "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -183,4 +175,9 @@ async def raw_encrypted(short_id: str):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "flowphoto"}
+    return {
+        "status": "ok",
+        "service": "flowphoto",
+        "data_dir": str(DATA_DIR),
+        "public": True,
+    }

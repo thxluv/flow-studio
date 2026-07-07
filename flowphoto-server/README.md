@@ -99,12 +99,20 @@ flowphoto-server/
 - Лимит загрузки: **25 МБ**.
 - Случайный 12-символьный ID (~58^12 комбинаций).
 
-## Продакшен (кратко)
+## Публичный доступ (для всех в интернете)
 
-1. VPS или домашний ПК с белым IP / Cloudflare Tunnel.
-2. Reverse proxy (nginx) → `127.0.0.1:8000`.
-3. TLS-сертификат (Let's Encrypt).
-4. Не коммить `uploads/` и `flowphoto.db` в публичный репозиторий.
+1. Задеплой на **Render.com** — в корне репозитория есть `render.yaml`.
+2. Скопируй URL вида `https://flowphoto-xxxx.onrender.com`.
+3. Вставь в `public-config.json` → поле `flowPhotoUrl`.
+4. Запусти `deploy.bat` — FlowNote на GitHub Pages начнёт вести на облако.
+
+Подробно: **`ПУБЛИЧНЫЙ-ЗАПУСК.txt`** в корне проекта.
+
+## Продакшен (VPS)
+
+1. Docker: `docker build -t flowphoto . && docker run -p 8000:8000 -v flowphoto_data:/data -e FLOWPHOTO_DATA_DIR=/data flowphoto`
+2. HTTPS через nginx + Let's Encrypt.
+3. Не коммить `flowphoto.db` в git.
 
 ## Отличие от старой версии
 
