@@ -98,6 +98,77 @@
             border: 1px solid rgba(239, 68, 68, 0.25);
             background: rgba(127, 29, 29, 0.08);
         }
+        .fp-nav-vault { padding-left: 0.35rem; padding-right: 0.35rem; }
+        .fp-nav-vault-icon {
+            width: 2.25rem; height: 2.25rem; border-radius: 0.65rem;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid transparent;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .fp-nav-vault.active .fp-nav-vault-icon,
+        .fp-nav-vault-icon.active {
+            background: rgba(91, 33, 182, 0.35);
+            border-color: rgba(139, 92, 246, 0.35);
+        }
+        @media (min-width: 640px) {
+            .fp-nav-vault { padding-left: 0.625rem; padding-right: 0.625rem; }
+            .fp-nav-vault-icon {
+                width: auto; height: auto; border: none; background: transparent !important;
+            }
+        }
+        .fp-vault-panel {
+            border: 1px solid rgba(76, 29, 149, 0.35);
+            background: rgba(0, 0, 0, 0.28);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .fp-vault-panel > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 0.85rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            min-height: 44px;
+            user-select: none;
+        }
+        .fp-vault-panel > summary::-webkit-details-marker { display: none; }
+        .fp-vault-panel > summary::after {
+            content: '\f078';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 0.65rem;
+            color: #64748b;
+            transition: transform 0.2s;
+        }
+        .fp-vault-panel[open] > summary::after { transform: rotate(180deg); }
+        .fp-vault-panel-body { padding: 0 1rem 1rem; }
+        .fp-vault-panel-danger { border-color: rgba(239, 68, 68, 0.22); }
+        .fp-vault-panel-danger > summary { color: #fca5a5; }
+        .fp-vault-badge {
+            display: inline-flex; align-items: center; gap: 0.35rem;
+            padding: 0.25rem 0.55rem; border-radius: 999px;
+            font-size: 0.65rem; font-weight: 500; letter-spacing: 0.02em;
+        }
+        .fp-vault-badge-owner {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            color: #ddd6fe;
+        }
+        .fp-vault-badge-foreign {
+            background: rgba(180, 83, 9, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fcd34d;
+        }
+        .fp-vault-badge-neutral {
+            background: rgba(51, 65, 85, 0.4);
+            border: 1px solid rgba(100, 116, 139, 0.35);
+            color: #94a3b8;
+        }
         @media (max-width: 640px) {
             main { padding-bottom: 2rem; }
         }
@@ -120,10 +191,11 @@
                 <a href="/" class="fp-nav-link px-2.5 py-1.5 rounded-lg {% if active_nav == 'upload' %}active bg-violet-900/25{% endif %}">
                     <i class="fa-solid fa-cloud-arrow-up sm:mr-1"></i><span class="hidden sm:inline">Загрузить</span>
                 </a>
-                <a href="/vault" class="fp-nav-link px-2.5 py-1.5 rounded-lg {% if active_nav == 'vault' %}active bg-violet-900/25{% endif %}" title="FlowVault — личный сейф фото">
-                    <i class="fa-solid fa-vault sm:mr-1 text-violet-400/90"></i>
-                    <span class="hidden sm:inline font-display tracking-tight">Flow<span class="text-violet-300">Vault</span></span>
-                    <span class="sm:hidden font-display text-violet-300">FV</span>
+                <a href="/vault" class="fp-nav-link fp-nav-vault rounded-lg {% if active_nav == 'vault' %}active{% endif %}" title="FlowVault — личный сейф фото">
+                    <span class="fp-nav-vault-icon {% if active_nav == 'vault' %}active{% endif %}">
+                        <i class="fa-solid fa-vault text-violet-400 text-sm sm:text-xs sm:mr-1"></i>
+                    </span>
+                    <span class="hidden sm:inline font-display tracking-tight ml-0 sm:ml-0">Flow<span class="text-violet-300">Vault</span></span>
                 </a>
                 <a href="{{ flownote_url | default('https://thxluv.github.io/flow-studio/index.html') }}" class="fp-nav-link px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-300" title="FlowNote Studio — отдельный сервис">
                     <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
