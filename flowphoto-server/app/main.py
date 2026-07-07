@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.backup import _BACKUP_INTERVAL, backup_configured, run_backup
+from app.backup import _BACKUP_INTERVAL, backup_configured, restore_latest_backup_if_needed, run_backup
 from app.database import (
     DATA_DIR,
     DEFAULT_RETENTION_SECONDS,
@@ -56,7 +56,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.3.0",
+    version="3.4.0",
 )
 
 
@@ -168,6 +168,7 @@ async def _periodic_tasks() -> None:
 @app.on_event("startup")
 async def on_startup() -> None:
     ensure_vault_secret_configured()
+    restore_latest_backup_if_needed()
     init_db()
     cleanup_expired_photos()
     cleanup_storage_overflow()
@@ -433,7 +434,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.3.0",
+        "version": "3.4.0",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,
@@ -442,5 +443,6 @@ async def health():
         },
         "storage": stats,
         "backup_configured": backup_configured(),
+        "disk_persistent": DATA_DIR.as_posix() == "/data",
         "public": True,
     }

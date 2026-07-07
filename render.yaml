@@ -1,17 +1,20 @@
 # Render.com Blueprint — FlowPhoto
 # https://dashboard.render.com/ → New → Blueprint
 #
-# Диск /data: на Free данные эфемерны. Для постоянства:
-#   1) Starter plan + disk ниже, ИЛИ
-#   2) Бэкап в Cloudflare R2 (env FLOWPHOTO_BACKUP_*)
+# Starter + disk: данные в /data сохраняются между рестартами.
+# Free без диска: данные эфемерны — только R2-бэкап (см. README).
 services:
   - type: web
     name: flowphoto
     runtime: docker
     dockerfilePath: ./flowphoto-server/Dockerfile
     dockerContext: ./flowphoto-server
-    plan: free
+    plan: starter
     healthCheckPath: /health
+    disk:
+      name: flowphoto-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: FLOWPHOTO_DATA_DIR
         value: /data
@@ -25,14 +28,8 @@ services:
         value: "60"
       - key: PORT
         value: "8000"
-      - key: FLOWPHOTO_VAULT_SECRET
-        generateValue: true
-      # Доп. секреты задай в Render Dashboard → Environment:
+      # FLOWPHOTO_VAULT_SECRET — только в Dashboard (Secret), ≥32 символов. Не в git!
+      # Опционально R2 (бесплатный тариф Cloudflare — страховка / Free-tier persistence):
       # FLOWPHOTO_BACKUP_BUCKET, FLOWPHOTO_BACKUP_ACCESS_KEY, FLOWPHOTO_BACKUP_SECRET_KEY
-      # FLOWPHOTO_BACKUP_ENDPOINT — для R2: https://<accountid>.r2.cloudflarestorage.com
+      # FLOWPHOTO_BACKUP_ENDPOINT — https://<accountid>.r2.cloudflarestorage.com
       # FLOWPHOTO_BACKUP_PREFIX — flowphoto
-    # Раскомментируй на Starter plan ($7/мес) для постоянного диска:
-    # disk:
-    #   name: flowphoto-data
-    #   mountPath: /data
-    #   sizeGB: 1

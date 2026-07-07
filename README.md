@@ -30,7 +30,9 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ## Деплой
 
 - **FlowNote:** GitHub Pages (`index.html` в корне)
-- **FlowPhoto:** `render.yaml` → Docker из `flowphoto-server/`
+- **FlowPhoto:** `render.yaml` → **Starter + disk 1GB** + Docker
+
+**Render Free** не сохраняет данные. Бесплатная страховка — [Cloudflare R2](flowphoto-server/README.md#starter-vs-free) (бэкап БД).
 
 Подробности сервера: [flowphoto-server/README.md](flowphoto-server/README.md)
 

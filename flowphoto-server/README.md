@@ -105,14 +105,37 @@ flowphoto-server/
 - Лимит загрузки: **25 МБ**.
 - Случайный 12-символьный ID (~58^12 комбинаций).
 
-## Публичный доступ (для всех в интернете)
+## Публичный доступ (Render)
 
-1. Задеплой на **Render.com** — в корне репозитория есть `render.yaml`.
-2. Скопируй URL вида `https://flowphoto-xxxx.onrender.com`.
-3. Вставь в `public-config.json` → поле `flowPhotoUrl`.
-4. Запусти `deploy.bat` — FlowNote на GitHub Pages начнёт вести на облако.
+`render.yaml` в корне репозитория: **Starter + disk 1GB** (`/data`).
 
-Подробно: **`ПУБЛИЧНЫЙ-ЗАПУСК.txt`** в корне проекта.
+### Обязательные env (Dashboard → Environment)
+
+| Переменная | Значение |
+|------------|----------|
+| `FLOWPHOTO_VAULT_SECRET` | Secret, ≥32 символов (только в Render, не в git) |
+| `FLOWPHOTO_DATA_DIR` | `/data` |
+| `FLOWNOTE_PUBLIC_URL` | URL FlowNote на GitHub Pages |
+| `PORT` | `8000` |
+
+### Starter vs Free
+
+| Тариф | Данные |
+|-------|--------|
+| **Starter + disk** | Сохраняются на диске 1 GB между рестартами |
+| **Free** | Эфемерно — при рестарте всё пропадает |
+
+**Бесплатной persistent-диск на Render нет.** Альтернатива без $7/мес:
+
+1. **Cloudflare R2** (free tier ~10 GB) — env `FLOWPHOTO_BACKUP_*`
+2. Сервер сам бэкапит БД раз в сутки и **восстанавливает при пустой БД** после рестарта
+3. Ограничения: задержка до 24ч, нужна настройка R2, первый бэкап после загрузок
+
+### После деплоя
+
+1. Проверь `https://твой-сервис.onrender.com/health` → `"status":"ok"`
+2. URL в `public-config.json` → `flowPhotoUrl`
+3. Push на GitHub Pages (FlowNote подхватит ссылку)
 
 ## Продакшен (VPS)
 
