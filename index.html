@@ -410,7 +410,12 @@
         }
 
         #calc-panel {
+            position: fixed !important;
             box-shadow: -8px 0 40px rgba(0, 0, 0, 0.45);
+        }
+
+        #calc-panel:not(.hidden) {
+            display: flex !important;
         }
 
         #calc-panel.calc-drag-mode #calc-panel-header {
@@ -1299,7 +1304,7 @@
     </div>
 
     <!-- Calculator panel (не блокирует блокнот — пиши и считай одновременно) -->
-    <div id="calc-panel" class="calc-size-m hidden fixed right-3 top-[4.5rem] w-[min(400px,calc(100vw-24px))] max-h-[calc(100vh-5.5rem)] z-[290] glass border border-slate-600 rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
+    <div id="calc-panel" class="calc-size-m hidden fixed right-3 top-[4.5rem] w-[min(400px,calc(100vw-24px))] max-h-[calc(100vh-5.5rem)] z-[290] glass border border-slate-600 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
         <div id="calc-panel-header" class="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900/80 shrink-0 select-none">
             <div class="flex items-center gap-x-2 min-w-0">
                 <i class="fa-solid fa-calculator text-teal-400 shrink-0"></i>

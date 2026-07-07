@@ -88,6 +88,33 @@
         .fp-vault-card:hover { border-color: rgba(139, 92, 246, 0.35); }
 
         #fp-preview-img { max-height: 280px; object-fit: contain; }
+
+        .fp-mode-segment {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 14px;
+            border: 1px solid rgba(76, 29, 149, 0.5);
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .fp-mode-btn {
+            flex: 1;
+            border: none;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 10px 8px;
+            transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+            color: #94a3b8;
+            background: transparent;
+        }
+
+        .fp-mode-btn.fp-mode-active {
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+            box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.35);
+        }
     </style>
 </head>
 <body class="relative">
@@ -118,8 +145,8 @@
         <div class="mb-8">
             <h1 class="font-display text-2xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
             <p class="text-sm text-slate-400 leading-relaxed max-w-2xl">
-                Метаданные режутся <span class="text-violet-300">в твоём браузере</span>. Фото шифруется паролем.
-                Передаёшь файл <code class="text-violet-400/90 text-xs">.flowphoto</code> или HTML-ссылку — сервер не нужен.
+                Метаданные режутся <span class="text-violet-300">в твоём браузере</span>. Защита — секретной фразой или ссылкой с случайным ключом.
+                Передаёшь файл <code class="text-violet-400/90 text-xs">.flowphoto</code> / HTML — сервер для файлов пока не нужен.
             </p>
         </div>
 
@@ -171,7 +198,23 @@
                 </div>
 
                 <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
-                    <div class="grid sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-slate-500 mb-1.5 block">Как защитить фото?</label>
+                        <div class="fp-mode-segment">
+                            <button type="button" id="fp-mode-pass" onclick="setProtectionMode('passphrase')" class="fp-mode-btn fp-mode-active">
+                                <i class="fa-solid fa-key mr-1 opacity-70"></i>С фразой
+                            </button>
+                            <button type="button" id="fp-mode-link" onclick="setProtectionMode('link')" class="fp-mode-btn">
+                                <i class="fa-solid fa-link mr-1 opacity-70"></i>Только ссылка
+                            </button>
+                        </div>
+                    </div>
+                    <div id="fp-link-mode-hint" class="hidden rounded-xl border border-violet-900/40 bg-violet-950/15 px-3 py-2.5 text-[10px] text-slate-400 leading-relaxed">
+                        <i class="fa-solid fa-shield-halved text-violet-400/70 mr-1"></i>
+                        Ключ сгенерируется сам (длинный случайный). Получатель откроет фото по <strong class="text-violet-300">ссылке + файлу</strong> — фразу вводить не нужно.
+                        Без ссылки файл бесполезен — так и задумано.
+                    </div>
+                    <div id="fp-passphrase-fields" class="grid sm:grid-cols-2 gap-3">
                         <div>
                             <label class="text-[10px] text-slate-500 mb-1 block">Секретная фраза</label>
                             <div class="relative">
@@ -209,7 +252,8 @@
                         <code id="fp-share-id-value" class="text-xs font-mono text-violet-300 bg-black/40 px-2 py-1 rounded-lg border border-violet-900/50"></code>
                         <button type="button" onclick="copyShareId()" class="text-[10px] text-slate-500 hover:text-violet-300">копировать</button>
                     </div>
-                    <p class="text-xs text-slate-400">Отправь <strong class="text-slate-300">файл</strong> или <strong class="text-slate-300">HTML</strong>. Фразу — отдельным сообщением. Страницу «Получить» — как ссылку.</p>
+                    <p id="fp-share-passphrase-note" class="text-xs text-slate-400">Отправь <strong class="text-slate-300">файл</strong> или <strong class="text-slate-300">HTML</strong>. Фразу — отдельным сообщением.</p>
+                    <p id="fp-share-link-note" class="hidden text-xs text-slate-400">Отправь <strong class="text-slate-300">файл</strong> (или HTML) <strong class="text-slate-300">и ссылку с ключом</strong> — фразу вводить не нужно. Ссылку не публикуй в открытом доступе.</p>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" onclick="downloadFlowphotoFile()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-violet-500/40 bg-violet-900/30 hover:bg-violet-900/50 rounded-xl text-violet-200">
                             <i class="fa-solid fa-download mr-1"></i>.flowphoto
@@ -218,19 +262,30 @@
                             <i class="fa-solid fa-file-code mr-1"></i>HTML-ссылка
                         </button>
                         <button type="button" onclick="copyReceivePageLink()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-300">
-                            <i class="fa-solid fa-link mr-1"></i>Ссылка «Получить»
+                            <i class="fa-solid fa-link mr-1"></i>Страница «Получить»
+                        </button>
+                        <button type="button" id="fp-copy-view-link-btn" onclick="copyViewLink()" class="hidden flex-1 min-w-[120px] py-2.5 text-xs border border-violet-500/40 bg-violet-900/30 hover:bg-violet-900/50 rounded-xl text-violet-200">
+                            <i class="fa-solid fa-key mr-1"></i>Ссылка с ключом
                         </button>
                         <button type="button" onclick="copyShareInstructions()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-300">
                             <i class="fa-solid fa-message mr-1"></i>Инструкция
                         </button>
                     </div>
+                    <div id="fp-view-link-block" class="hidden rounded-xl border border-violet-500/30 bg-violet-950/20 px-3 py-2.5 space-y-1">
+                        <div class="text-[10px] text-violet-300/80">Ссылка для получателя (ключ внутри — не теряй)</div>
+                        <input type="text" readonly id="fp-view-link-url" class="w-full bg-transparent text-[10px] font-mono text-violet-200 outline-none truncate">
+                    </div>
                     <div class="rounded-xl border border-violet-900/40 bg-black/30 px-3 py-2.5 space-y-1">
-                        <div class="text-[10px] text-slate-500">Ссылка для получателя (страница загрузки файла)</div>
+                        <div class="text-[10px] text-slate-500">Страница загрузки файла (без ключа)</div>
                         <input type="text" readonly id="fp-receive-page-url" class="w-full bg-transparent text-[10px] font-mono text-violet-300/80 outline-none truncate">
+                    </div>
+                    <div id="fp-future-server-block" class="hidden rounded-xl border border-dashed border-amber-900/40 bg-amber-950/10 px-3 py-2.5 space-y-1">
+                        <div class="text-[10px] text-amber-400/80">Будущая ссылка на хосте (Фаза B — только файл по ссылке)</div>
+                        <code id="fp-future-server-url" class="block text-[10px] font-mono text-amber-200/70 break-all"></code>
                     </div>
                     <div class="rounded-xl border border-dashed border-violet-900/50 bg-violet-950/10 px-3 py-2.5 flex items-start gap-2">
                         <i class="fa-solid fa-hourglass-half text-violet-500/50 text-xs mt-0.5"></i>
-                        <p class="text-[10px] text-slate-500 leading-relaxed"><span class="text-violet-400/80">Скоро:</span> короткая ссылка на фото (как rulook) и код для чата — после подключения Cloudflare.</p>
+                        <p class="text-[10px] text-slate-500 leading-relaxed"><span class="text-violet-400/80">Скоро (Cloudflare):</span> короткая ссылка — открыл и фото уже там, без отдельного файла. Случайный ID в URL, чтобы никто не угадал.</p>
                     </div>
                 </div>
             </div>
@@ -243,7 +298,7 @@
                 <p class="text-sm text-slate-400">Перетащи <code class="text-violet-400">.flowphoto</code> сюда</p>
             </div>
             <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
-                <p class="text-xs text-slate-400">Загрузи файл <code class="text-violet-400">.flowphoto</code> от отправителя и введи секретную фразу.</p>
+                <p class="text-xs text-slate-400">Загрузи файл <code class="text-violet-400">.flowphoto</code>. Фраза — или ссылка с ключом от отправителя.</p>
                 <label class="block w-full py-2.5 px-4 border border-dashed border-violet-900/50 rounded-xl text-xs text-center cursor-pointer hover:border-violet-500/40 transition-colors">
                     <i class="fa-solid fa-file-import mr-1 text-violet-400/70"></i> Выбрать файл
                     <input type="file" id="fp-import-input" accept=".flowphoto,application/json" class="hidden">
@@ -252,7 +307,10 @@
                 <div class="rounded-xl border border-dashed border-violet-900/40 px-3 py-2 text-[10px] text-slate-600">
                     <i class="fa-solid fa-hourglass-half text-violet-500/40 mr-1"></i>Код для вставки в чат — <span class="text-violet-400/70">скоро</span>
                 </div>
-                <div>
+                <div id="fp-receive-link-hint" class="hidden rounded-xl border border-violet-900/40 bg-violet-950/15 px-3 py-2.5 text-[10px] text-violet-300/90">
+                    <i class="fa-solid fa-link mr-1"></i>Ключ подтянут из ссылки — нажми «Расшифровать» после загрузки файла.
+                </div>
+                <div id="fp-receive-pass-fields">
                     <label class="text-[10px] text-slate-500 mb-1 block">Секретная фраза</label>
                     <input type="password" id="fp-receive-pass" placeholder="Фраза от отправителя"
                            class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-violet-500/50 font-mono">
@@ -307,6 +365,8 @@
         let fpCurrentMeta = null;
         let fpCurrentPackage = null;
         let fpShareId = null;
+        let fpLinkKey = null;
+        let fpProtectionMode = 'passphrase';
         let fpDb = null;
 
         function showToast(msg) {
@@ -383,8 +443,24 @@
             return s.slice(0, 4) + '-' + s.slice(4);
         }
 
-        function formatShareId(id) {
-            return id || '';
+        function generateLinkKey() {
+            const bytes = getRandomBytes(32);
+            return bufToB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function generateServerSlug() {
+            let s = '';
+            const arr = getRandomBytes(12);
+            for (let i = 0; i < 12; i++) s += FP_ID_CHARS[arr[i] % FP_ID_CHARS.length];
+            return s;
+        }
+
+        function setProtectionMode(mode) {
+            fpProtectionMode = mode === 'link' ? 'link' : 'passphrase';
+            document.getElementById('fp-mode-pass')?.classList.toggle('fp-mode-active', fpProtectionMode === 'passphrase');
+            document.getElementById('fp-mode-link')?.classList.toggle('fp-mode-active', fpProtectionMode === 'link');
+            document.getElementById('fp-passphrase-fields')?.classList.toggle('hidden', fpProtectionMode === 'link');
+            document.getElementById('fp-link-mode-hint')?.classList.toggle('hidden', fpProtectionMode === 'passphrase');
         }
 
         function getReceivePageUrl() {
@@ -402,7 +478,98 @@
         }
 
         function copyReceivePageLink() {
-            navigator.clipboard.writeText(getReceivePageUrl()).then(() => showToast('Ссылка «Получить» скопирована'));
+            navigator.clipboard.writeText(getReceivePageUrl()).then(() => showToast('Страница «Получить» скопирована'));
+        }
+
+        function getViewLinkUrl(key, slug) {
+            const u = new URL(window.location.href);
+            const path = u.pathname.replace(/[^/]+$/, 'flowphoto.html');
+            u.pathname = path;
+            u.search = '';
+            let hash = 'receive&k=' + encodeURIComponent(key);
+            if (slug) hash += '&s=' + encodeURIComponent(slug);
+            u.hash = hash;
+            return u.toString();
+        }
+
+        function getFutureServerLink(slug) {
+            const u = new URL(window.location.href);
+            const path = u.pathname.replace(/[^/]+$/, 'flowphoto.html');
+            u.pathname = path;
+            u.search = '';
+            u.hash = 'p/' + slug;
+            return u.toString();
+        }
+
+        function copyViewLink() {
+            const url = document.getElementById('fp-view-link-url')?.value;
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => showToast('Ссылка с ключом скопирована'));
+        }
+
+        function updateShareBlockUI() {
+            const isLink = fpCurrentPackage?.meta?.protection === 'link';
+            document.getElementById('fp-share-passphrase-note')?.classList.toggle('hidden', isLink);
+            document.getElementById('fp-share-link-note')?.classList.toggle('hidden', !isLink);
+            document.getElementById('fp-copy-view-link-btn')?.classList.toggle('hidden', !isLink);
+            document.getElementById('fp-view-link-block')?.classList.toggle('hidden', !isLink || !fpLinkKey);
+            document.getElementById('fp-future-server-block')?.classList.toggle('hidden', !isLink);
+
+            if (isLink && fpLinkKey) {
+                const slug = fpCurrentPackage?.meta?.serverSlug;
+                const viewUrl = getViewLinkUrl(fpLinkKey, slug);
+                const viewEl = document.getElementById('fp-view-link-url');
+                if (viewEl) viewEl.value = viewUrl;
+                const futureEl = document.getElementById('fp-future-server-url');
+                if (futureEl && slug) futureEl.textContent = getFutureServerLink(slug);
+            }
+            updateReceivePageUrlFields();
+        }
+
+        function parseLocationHash() {
+            const raw = location.hash.slice(1);
+            const result = { tab: null, key: null, slug: null, serverOnly: false };
+            if (!raw) return result;
+            if (raw === 'receive') {
+                result.tab = 'receive';
+                return result;
+            }
+            if (raw.startsWith('p/')) {
+                result.slug = raw.slice(2);
+                result.tab = 'receive';
+                result.serverOnly = true;
+                return result;
+            }
+            const amp = raw.indexOf('&');
+            const base = amp >= 0 ? raw.slice(0, amp) : raw;
+            const query = amp >= 0 ? raw.slice(amp + 1) : '';
+            if (base === 'receive' || raw.includes('receive')) result.tab = 'receive';
+            if (query) {
+                const params = new URLSearchParams(query);
+                result.key = params.get('k');
+                result.slug = params.get('s');
+            }
+            return result;
+        }
+
+        function applyHashToReceiveUI() {
+            const { tab, key, slug, serverOnly } = parseLocationHash();
+            if (tab === 'receive') showFpTab('receive');
+            if (key) {
+                window._fpLinkKeyFromHash = key;
+                const passEl = document.getElementById('fp-receive-pass');
+                if (passEl) passEl.value = key;
+                updateReceivePassphraseUI('link');
+            } else if (serverOnly && slug) {
+                updateReceivePassphraseUI('passphrase');
+                showToast('Эта ссылка заработает после Фазы B (Cloudflare). Пока — файл + ссылка с ключом.');
+            }
+        }
+
+        function updateReceivePassphraseUI(mode) {
+            const isLink = mode === 'link' || !!window._fpLinkKeyFromHash;
+            document.getElementById('fp-receive-pass-fields')?.classList.toggle('hidden', isLink);
+            document.getElementById('fp-receive-link-hint')?.classList.toggle('hidden', !isLink);
         }
 
         function loadImageFromBlob(blob) {
@@ -442,6 +609,8 @@
             fpCurrentMeta = null;
             fpCurrentPackage = null;
             fpShareId = null;
+            fpLinkKey = null;
+            setProtectionMode('passphrase');
             document.getElementById('fp-process-block').classList.add('hidden');
             document.getElementById('fp-share-block').classList.add('hidden');
             document.getElementById('fp-passphrase').value = '';
@@ -548,10 +717,19 @@
 
         async function encryptAndPackage() {
             if (!fpCurrentBlob) return;
-            const pass = document.getElementById('fp-passphrase').value;
-            const confirm = document.getElementById('fp-passphrase-confirm').value;
-            if (pass.length < 4) { showToast('Фраза минимум 4 символа'); return; }
-            if (pass !== confirm) { showToast('Фразы не совпадают'); return; }
+
+            let pass;
+            let protection = fpProtectionMode;
+            if (fpProtectionMode === 'link') {
+                fpLinkKey = generateLinkKey();
+                pass = fpLinkKey;
+            } else {
+                fpLinkKey = null;
+                pass = document.getElementById('fp-passphrase').value;
+                const confirm = document.getElementById('fp-passphrase-confirm').value;
+                if (pass.length < 4) { showToast('Фраза минимум 4 символа'); return; }
+                if (pass !== confirm) { showToast('Фразы не совпадают'); return; }
+            }
 
             const btn = document.getElementById('fp-encrypt-btn');
             btn.disabled = true;
@@ -560,21 +738,26 @@
             try {
                 const ttl = document.getElementById('fp-ttl').value;
                 fpShareId = generateShareId();
+                const serverSlug = fpProtectionMode === 'link' ? generateServerSlug() : null;
 
                 fpCurrentPackage = await buildEncryptedPackage(fpCurrentBlob, fpCurrentMeta, pass, {
                     shareId: fpShareId,
                     expiresAt: ttlToExpires(ttl),
                     ttlLabel: ttl,
-                    variant: 'full'
+                    variant: 'full',
+                    protection,
+                    serverSlug: serverSlug || undefined
                 });
 
                 await saveToVault(fpCurrentPackage);
                 document.getElementById('fp-share-block').classList.remove('hidden');
                 document.getElementById('fp-share-id-value').textContent = fpShareId;
                 document.getElementById('fp-steps').innerHTML = '<span class="text-emerald-400">✓</span> <span class="text-violet-300">готово к передаче</span>';
-                updateReceivePageUrlFields();
+                updateShareBlockUI();
 
-                showToast('Зашифровано и сохранено в сейф');
+                showToast(fpProtectionMode === 'link'
+                    ? 'Зашифровано. Скопируй ссылку с ключом + отправь файл'
+                    : 'Зашифровано и сохранено в сейф');
             } catch (e) {
                 showToast('Ошибка шифрования');
                 console.error(e);
@@ -595,8 +778,30 @@
             showToast('Файл .flowphoto скачан');
         }
 
-        function buildStandaloneHtml(pkg) {
+        function buildStandaloneHtml(pkg, linkKey) {
             const payload = JSON.stringify(pkg).replace(/</g, '\\u003c');
+            const isLink = pkg.meta?.protection === 'link' && linkKey;
+            if (isLink) {
+                const keyEsc = JSON.stringify(linkKey);
+                return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlowPhoto</title>
+<style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#06060b;color:#e2e8f0;font-family:system-ui,sans-serif;padding:20px}
+.card{max-width:420px;width:100%;border:1px solid #3b0764;border-radius:16px;padding:24px;background:#0c0c14;text-align:center}
+img{max-width:100%;border-radius:12px;margin-top:16px;display:none}
+.err{color:#f87171;font-size:12px;margin-top:8px;display:none}
+.tag{font-size:10px;color:#8b5cf6;font-family:monospace;letter-spacing:.1em}
+.ld{color:#94a3b8;font-size:13px;margin:12px 0}</style></head><body>
+<div class="card"><div class="tag">FLOWPHOTO · LINK VIEW</div><h2 style="margin:12px 0 8px;font-size:18px">Открытие по ссылке</h2>
+<p class="ld" id="st">Расшифровка…</p><p class="err" id="e"></p><img id="i" alt=""></div>
+<script>
+const PKG=${payload};const KEY=${keyEsc};
+async function derive(s,sl){const e=new TextEncoder(),km=await crypto.subtle.importKey('raw',e.encode(s),{name:'PBKDF2'},false,['deriveKey']);
+return crypto.subtle.deriveKey({name:'PBKDF2',salt:sl,iterations:310000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);}
+function b64(b){const x=atob(b),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return u;}
+(async()=>{const st=document.getElementById('st'),e=document.getElementById('e'),img=document.getElementById('i');
+try{const k=await derive(KEY,b64(PKG.salt)),d=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(PKG.iv)},k,b64(PKG.ct));
+const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));img.src=u;img.style.display='block';st.textContent='Готово';}catch(err){st.textContent='';e.textContent='Не удалось открыть — файл повреждён';e.style.display='block';}})();
+<\/script></body></html>`;
+            }
             return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlowPhoto</title>
 <style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#06060b;color:#e2e8f0;font-family:system-ui,sans-serif;padding:20px}
 .card{max-width:420px;width:100%;border:1px solid #3b0764;border-radius:16px;padding:24px;background:#0c0c14}
@@ -622,7 +827,7 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
 
         function downloadStandaloneHtml() {
             if (!fpCurrentPackage) return;
-            const html = buildStandaloneHtml(fpCurrentPackage);
+            const html = buildStandaloneHtml(fpCurrentPackage, fpLinkKey);
             const blob = new Blob([html], { type: 'text/html' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -640,15 +845,23 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
         function copyShareInstructions() {
             if (!fpCurrentPackage) return;
             const id = fpCurrentPackage.meta?.shareId || fpShareId || '—';
-            const recvUrl = getReceivePageUrl();
-            const lines = [
+            const isLink = fpCurrentPackage.meta?.protection === 'link';
+            const lines = isLink ? [
+                'FlowPhoto — зашифрованное фото (режим ссылки)',
+                `ID посылки: ${id}`,
+                '1) Скачай файл .flowphoto (или HTML) и отправь получателю',
+                '2) Отправь ссылку с ключом (кнопка «Ссылка с ключом») — отдельным сообщением',
+                '3) Получатель откроет ссылку, загрузит файл — фразу вводить не нужно',
+                'Без ссылки файл бесполезен. EXIF удалён до шифрования.'
+            ] : [
                 'FlowPhoto — зашифрованное фото',
                 `ID посылки: ${id}`,
                 '1) Скачай файл .flowphoto (или HTML-ссылку) из FlowPhoto',
-                `2) Открой страницу получения: ${recvUrl}`,
+                `2) Открой страницу получения: ${getReceivePageUrl()}`,
                 '3) Загрузи файл и введи секретную фразу (отправлю отдельно)',
                 'Без фразы фото не открыть. EXIF удалён до шифрования.'
             ];
+            if (isLink && fpLinkKey) lines.splice(3, 0, 'Ссылка: ' + getViewLinkUrl(fpLinkKey, fpCurrentPackage.meta?.serverSlug));
             navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Инструкция скопирована'));
         }
 
@@ -660,17 +873,31 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
             return { blob: new Blob([plain], { type: pkg.meta?.mime || 'image/jpeg' }), meta: pkg.meta };
         }
 
+        async function tryAutoDecrypt() {
+            const pkg = window._fpImportPackage;
+            if (!pkg || pkg.meta?.protection !== 'link') return;
+            if (!window._fpLinkKeyFromHash) return;
+            await decryptAndView();
+        }
+
         async function decryptAndView() {
             const errEl = document.getElementById('fp-receive-error');
             const resEl = document.getElementById('fp-receive-result');
             errEl.classList.add('hidden');
             resEl.classList.add('hidden');
 
-            const pass = document.getElementById('fp-receive-pass').value;
-            if (!pass) { errEl.textContent = 'Введи секретную фразу'; errEl.classList.remove('hidden'); return; }
-
             const pkg = window._fpImportPackage || null;
             if (!pkg) { errEl.textContent = 'Загрузи файл .flowphoto'; errEl.classList.remove('hidden'); return; }
+
+            const isLink = pkg.meta?.protection === 'link';
+            let pass = document.getElementById('fp-receive-pass').value || window._fpLinkKeyFromHash || '';
+            if (!pass) {
+                errEl.textContent = isLink
+                    ? 'Нужна ссылка с ключом от отправителя'
+                    : 'Введи секретную фразу';
+                errEl.classList.remove('hidden');
+                return;
+            }
 
             try {
                 const { blob, meta } = await decryptPackage(pkg, pass);
@@ -689,7 +916,7 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
                 resEl.classList.remove('hidden');
                 showToast('Фото расшифровано');
             } catch (e) {
-                errEl.textContent = 'Неверная фраза или повреждённый пакет';
+                errEl.textContent = isLink ? 'Неверный ключ или повреждённый пакет' : 'Неверная фраза или повреждённый пакет';
                 errEl.classList.remove('hidden');
             }
         }
@@ -846,10 +1073,22 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
             const reader = new FileReader();
             reader.onload = () => {
                 try {
-                    window._fpImportPackage = JSON.parse(reader.result);
+                    const pkg = JSON.parse(reader.result);
+                    window._fpImportPackage = pkg;
                     document.getElementById('fp-import-name').textContent = '✓ ' + f.name;
                     document.getElementById('fp-import-name').classList.remove('hidden');
-                    showToast('Файл загружен — введи фразу');
+                    if (pkg.meta?.protection === 'link') {
+                        updateReceivePassphraseUI('link');
+                        if (window._fpLinkKeyFromHash) {
+                            showToast('Файл загружен — расшифровываем…');
+                            tryAutoDecrypt();
+                        } else {
+                            showToast('Файл загружен — открой ссылку с ключом от отправителя');
+                        }
+                    } else {
+                        updateReceivePassphraseUI('passphrase');
+                        showToast('Файл загружен — введи фразу');
+                    }
                 } catch (_) {
                     showToast('Неверный файл .flowphoto');
                 }
@@ -874,15 +1113,13 @@ const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));im
             if (f) loadFlowphotoFile(f);
         });
 
-        function tryLoadHashRoute() {
-            if (location.hash === '#receive') showFpTab('receive');
-        }
-
         window.addEventListener('load', () => {
             updateReceivePageUrlFields();
-            tryLoadHashRoute();
+            applyHashToReceiveUI();
             purgeExpiredVault().catch(() => {});
         });
+
+        window.addEventListener('hashchange', applyHashToReceiveUI);
     </script>
 </body>
 </html>
