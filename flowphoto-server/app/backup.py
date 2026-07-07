@@ -12,6 +12,7 @@ from app.database import DB_PATH, DATA_DIR
 logger = logging.getLogger("flowphoto.backup")
 
 _BACKUP_INTERVAL = int(os.environ.get("FLOWPHOTO_BACKUP_INTERVAL", str(24 * 3600)))
+_BACKUP_KEEP = int(os.environ.get("FLOWPHOTO_BACKUP_KEEP", "12"))
 
 
 def backup_configured() -> bool:
@@ -97,6 +98,26 @@ def restore_latest_backup_if_needed() -> bool:
         return False
 
 
+def _prune_old_backups(client, bucket: str, prefix: str, keep: int) -> None:
+    if keep <= 0:
+        return
+    full_prefix = f"{prefix}/" if prefix else ""
+    entries: list[tuple[datetime | None, str]] = []
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=full_prefix):
+        for obj in page.get("Contents") or []:
+            key = obj.get("Key") or ""
+            if key.endswith(".db"):
+                entries.append((obj.get("LastModified"), key))
+    entries.sort(key=lambda x: x[0] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    for _, key in entries[keep:]:
+        try:
+            client.delete_object(Bucket=bucket, Key=key)
+            logger.info("Pruned old backup: s3://%s/%s", bucket, key)
+        except Exception as exc:
+            logger.warning("Failed to prune %s: %s", key, exc)
+
+
 def run_backup() -> bool:
     if not backup_configured():
         return False
@@ -113,6 +134,7 @@ def run_backup() -> bool:
         key = f"{prefix}/flowphoto_{stamp}.db"
         client = _s3_client()
         client.upload_file(str(tmp), bucket, key)
+        _prune_old_backups(client, bucket, prefix, _BACKUP_KEEP)
         logger.info("Backup uploaded: s3://%s/%s", bucket, key)
         return True
     except Exception as exc:

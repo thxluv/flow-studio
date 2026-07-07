@@ -23,7 +23,9 @@ services:
       - key: FLOWPHOTO_RATE_WINDOW
         value: "60"
       - key: FLOWPHOTO_BACKUP_INTERVAL
-        value: "3600"
+        value: "1800"
+      - key: FLOWPHOTO_BACKUP_KEEP
+        value: "12"
       - key: PORT
         value: "8000"
       # Dashboard → Secret:
