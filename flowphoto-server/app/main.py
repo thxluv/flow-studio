@@ -328,14 +328,14 @@ async def vault_login(password: str = Form(...), intent: str = Form("auto")):
         raise HTTPException(status_code=400, detail="Пароль минимум 4 символа")
     result = vault_mod.login_or_create(password.strip(), intent=intent.strip() or "auto")
     if result is None:
-        raise HTTPException(status_code=500, detail="Ошибка vault")
+        raise HTTPException(status_code=500, detail="Ошибка FlowVault")
     if result.get("error") == "password_taken":
         raise HTTPException(
             status_code=409,
-            detail="Этот пароль уже занят — выберите другой для нового Vault",
+            detail="Этот пароль уже занят — выберите другой для нового FlowVault",
         )
     if result.get("error") == "not_found":
-        raise HTTPException(status_code=404, detail="Vault с таким паролем не найден")
+        raise HTTPException(status_code=404, detail="FlowVault с таким паролем не найден")
     return result
 
 
@@ -351,7 +351,7 @@ async def vault_me(x_vault_token: str | None = Header(default=None)):
 async def vault_photos(x_vault_token: str | None = Header(default=None)):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     return {"photos": vault_mod.list_vault_photos(vault_id)}
 
 
@@ -363,7 +363,7 @@ async def vault_add_photo(
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     if not is_valid_short_id(short_id):
         raise HTTPException(status_code=400, detail="Неверный ID")
     if not vault_mod.add_photo_to_vault(vault_id, short_id, label):
@@ -379,7 +379,7 @@ async def vault_delete_photo(
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     if not is_valid_short_id(short_id):
         raise HTTPException(status_code=400, detail="Неверный ID")
     if not vault_mod.delete_vault_photo_permanent(vault_id, short_id, x_vault_upload_claim):
@@ -395,7 +395,7 @@ async def vault_delete_batch(
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     ids = [s.strip() for s in short_ids.split(",") if s.strip()]
     if not ids:
         raise HTTPException(status_code=400, detail="Не выбрано ни одного фото")
@@ -412,7 +412,7 @@ async def vault_burn_all(
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     deleted = vault_mod.burn_all_vault_photos(vault_id, x_vault_upload_claim)
     if deleted == 0 and vault_mod.list_vault_photos(vault_id):
         raise HTTPException(status_code=403, detail="Нет прав на удаление")
@@ -427,7 +427,7 @@ async def vault_delete_account(
 ):
     vault_id = vault_mod.resolve_token(x_vault_token)
     if not vault_id:
-        raise HTTPException(status_code=401, detail="Нужен вход в Vault")
+        raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     if not vault_mod.delete_vault_account(vault_id, password.strip(), x_vault_upload_claim):
         raise HTTPException(status_code=403, detail="Неверный пароль или нет прав")
     return {"ok": True, "deleted": True}

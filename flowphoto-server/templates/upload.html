@@ -14,16 +14,16 @@
 </div>
 
 <div id="vault-badge" class="hidden mb-4 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2 text-[11px] text-violet-200 flex items-center justify-between gap-2">
-    <span><i class="fa-solid fa-bookmark mr-1 text-violet-400"></i>Твой Vault — фото попадут в библиотеку</span>
+    <span><i class="fa-solid fa-vault mr-1 text-violet-400"></i>Твой FlowVault — фото попадут в сейф</span>
     <a href="/vault" class="text-violet-400 hover:text-violet-200 shrink-0">Открыть</a>
 </div>
 
 <div id="vault-foreign-block" class="hidden mb-4 rounded-xl border border-amber-900/40 bg-amber-950/15 px-3 py-3 space-y-2">
     <p class="text-[11px] text-amber-100/90 leading-relaxed">
         <i class="fa-solid fa-user-lock text-amber-400 mr-1"></i>
-        <strong>Чужой Vault</strong> — на этом устройстве нет ключей расшифровки. Загрузка заблокирована.
+        <strong>Чужой FlowVault</strong> — на этом устройстве нет ключей расшифровки. Загрузка заблокирована.
     </p>
-    <a href="/vault" class="inline-block text-[11px] text-violet-300 hover:text-violet-100">Создать свой Vault →</a>
+    <a href="/vault" class="inline-block text-[11px] text-violet-300 hover:text-violet-100">Создать свой FlowVault →</a>
 </div>
 
 <p class="text-[10px] text-slate-600 leading-relaxed mb-4" id="upload-disclaimer"></p>
@@ -184,7 +184,7 @@
     });
 
     function addFiles(fileList) {
-        if (!uploadAllowed) { showToast('Создай свой Vault для загрузки'); return; }
+        if (!uploadAllowed) { showToast('Создай свой FlowVault для загрузки'); return; }
         const incoming = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
         if (!incoming.length) { showToast('Нужны изображения'); return; }
         for (const f of incoming) {

@@ -1,4 +1,4 @@
-"""Опциональная библиотека FlowPhoto Vault — один пароль, без email."""
+"""FlowVault — личный сейф фото FlowPhoto, один пароль, без email."""
 from __future__ import annotations
 
 import secrets

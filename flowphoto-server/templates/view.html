@@ -66,7 +66,7 @@
             <span class="text-sm font-medium text-slate-200">Ответить фото</span>
         </div>
         <p class="text-[11px] text-slate-500">Загрузи своё — получишь новую зашифрованную ссылку</p>
-        <p id="reply-foreign-hint" class="hidden text-[11px] text-amber-400/90">Чужой Vault — <a href="/vault" class="text-violet-300 underline">создай свой</a> или выйди из Vault</p>
+        <p id="reply-foreign-hint" class="hidden text-[11px] text-amber-400/90">Чужой FlowVault — <a href="/vault" class="text-violet-300 underline">создай свой</a> или выйди из FlowVault</p>
         <input type="file" id="reply-file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
         <button type="button" id="reply-pick-btn" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">
             <i class="fa-solid fa-camera mr-1"></i>Выбрать фото
@@ -190,7 +190,7 @@
 
     document.getElementById('reply-pick-btn').addEventListener('click', () => {
         if (!FlowPhotoUpload.canUpload()) {
-            showToast('Создай свой Vault');
+            showToast('Создай свой FlowVault');
             document.getElementById('reply-foreign-hint').classList.remove('hidden');
             return;
         }

@@ -222,7 +222,7 @@
 
     async function uploadEncryptedFile(file, options) {
         if (!canUpload()) {
-            throw new Error('Чужой Vault — создай свой аккаунт с другим паролем');
+            throw new Error('Чужой FlowVault — создай свой с другим паролем');
         }
 
         const opts = options || {};
@@ -267,8 +267,10 @@
         }, () => {});
     }
 
+    const FLOWVAULT_NAME = 'FlowVault';
+
     const VAULT_DISCLAIMER =
-        'Даже войдя в чужой Vault по совпавшему паролю, открыть чужие фото нельзя — ключ расшифровки (#...) есть только у того, кто загружал, в его браузере.';
+        'Даже войдя в чужой FlowVault по совпавшему паролю, открыть чужие фото нельзя — ключ расшифровки (#...) есть только у того, кто загружал, в его браузере.';
 
     global.FlowPhotoUpload = {
         getVaultToken,
@@ -290,6 +292,7 @@
         uploadEncryptedFile,
         renderQr,
         hasLocalKeyForPhoto,
+        FLOWVAULT_NAME,
         VAULT_DISCLAIMER,
         VAULT_TOKEN_KEY,
         VAULT_LINKS_KEY,
