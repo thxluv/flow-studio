@@ -60,14 +60,15 @@
     </div>
 
     <!-- Ответить фото -->
-    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-3">
+    <div id="reply-block" class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 sm:p-5 space-y-3">
         <div class="flex items-center gap-2">
             <i class="fa-solid fa-reply text-violet-400"></i>
             <span class="text-sm font-medium text-slate-200">Ответить фото</span>
         </div>
         <p class="text-[11px] text-slate-500">Загрузи своё — получишь новую зашифрованную ссылку</p>
+        <p id="reply-foreign-hint" class="hidden text-[11px] text-amber-400/90">Чужой Vault — <a href="/vault" class="text-violet-300 underline">создай свой</a> или выйди из Vault</p>
         <input type="file" id="reply-file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
-        <button type="button" onclick="document.getElementById('reply-file').click()" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">
+        <button type="button" id="reply-pick-btn" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">
             <i class="fa-solid fa-camera mr-1"></i>Выбрать фото
         </button>
         <div id="reply-result" class="hidden space-y-2">
@@ -81,6 +82,7 @@
 {% block scripts %}
 <script src="/static/js/flowphoto-crypto.js"></script>
 <script src="/static/js/flowphoto-upload.js"></script>
+<script src="/static/js/flowphoto-vault.js"></script>
 <script>
     const SHORT_ID = {{ short_id | tojson }};
     const MIME_TYPE = {{ photo.mime_type | tojson }};
@@ -184,6 +186,18 @@
     });
     document.getElementById('link-password-input')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') document.getElementById('password-submit').click();
+    });
+
+    document.getElementById('reply-pick-btn').addEventListener('click', () => {
+        if (!FlowPhotoUpload.canUpload()) {
+            showToast('Создай свой Vault');
+            document.getElementById('reply-foreign-hint').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('reply-file').click();
+    });
+    FlowPhotoUpload.refreshVaultState().then(t => {
+        if (t === 'foreign') document.getElementById('reply-foreign-hint').classList.remove('hidden');
     });
 
     document.getElementById('reply-file').addEventListener('change', async e => {

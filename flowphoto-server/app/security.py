@@ -58,6 +58,35 @@ def create_vault_token(vault_id: str) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
+def create_upload_claim(vault_id: str) -> str:
+    """Выдаётся только при создании Vault — право загружать в библиотеку."""
+    issued = int(time.time())
+    payload = f"upload:{vault_id}:{issued}"
+    sig = hmac.new(_vault_secret(), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    raw = f"{payload}:{sig}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def verify_upload_claim(vault_id: str, claim: str) -> bool:
+    if not vault_id or not claim:
+        return False
+    try:
+        pad = "=" * (-len(claim) % 4)
+        raw = base64.urlsafe_b64decode((claim + pad).encode("ascii")).decode("utf-8")
+        body, sig = raw.rsplit(":", 1)
+        if not body.startswith("upload:"):
+            return False
+        _, claim_vault, issued_str = body.split(":", 2)
+        if claim_vault != vault_id:
+            return False
+        if int(time.time()) - int(issued_str) > _TOKEN_TTL_SECONDS:
+            return False
+        expected = hmac.new(_vault_secret(), body.encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, sig)
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return False
+
+
 def verify_vault_token(token: str) -> str | None:
     if not token:
         return None

@@ -5,7 +5,14 @@ import secrets
 from typing import Any
 
 from app.database import get_connection, get_photo, _utc_iso
-from app.security import create_vault_token, hash_secret, verify_secret, verify_vault_token
+from app.security import (
+    create_upload_claim,
+    create_vault_token,
+    hash_secret,
+    verify_secret,
+    verify_upload_claim,
+    verify_vault_token,
+)
 
 _MAX_VAULT_PHOTOS = 200
 
@@ -14,8 +21,22 @@ def _generate_vault_id() -> str:
     return secrets.token_hex(8)
 
 
-def login_or_create(password: str) -> dict[str, Any] | None:
+def password_exists(password: str) -> bool:
+    with get_connection() as conn:
+        rows = conn.execute("SELECT password_hash FROM vaults").fetchall()
+    return any(verify_secret(password, row["password_hash"]) for row in rows)
+
+
+def login_or_create(password: str, *, intent: str = "auto") -> dict[str, Any] | None:
     from app.security import hash_secret as hs
+
+    exists = password_exists(password)
+
+    if intent == "create" and exists:
+        return {"error": "password_taken"}
+
+    if intent == "login" and not exists:
+        return {"error": "not_found"}
 
     pwd_hash = hs(password)
     with get_connection() as conn:
@@ -31,6 +52,7 @@ def login_or_create(password: str) -> dict[str, Any] | None:
                     "vault_id": row["vault_id"],
                     "token": create_vault_token(row["vault_id"]),
                     "created": False,
+                    "existing_password": True,
                 }
         vault_id = _generate_vault_id()
         now = _utc_iso()
@@ -42,8 +64,14 @@ def login_or_create(password: str) -> dict[str, Any] | None:
         return {
             "vault_id": vault_id,
             "token": create_vault_token(vault_id),
+            "upload_claim": create_upload_claim(vault_id),
             "created": True,
+            "existing_password": False,
         }
+
+
+def can_upload_to_vault(vault_id: str, upload_claim: str | None) -> bool:
+    return bool(vault_id and upload_claim and verify_upload_claim(vault_id, upload_claim))
 
 
 def resolve_token(token: str | None) -> str | None:

@@ -56,7 +56,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.0.0",
+    version="3.1.0",
 )
 
 
@@ -207,6 +207,7 @@ async def upload_encrypted(
     burn_after_read: str = Form("0"),
     link_password: str = Form(""),
     x_vault_token: str | None = Header(default=None),
+    x_vault_upload_claim: str | None = Header(default=None),
 ):
     if not mime_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Разрешены только image/*")
@@ -251,8 +252,9 @@ async def upload_encrypted(
     )
 
     vault_id = vault_mod.resolve_token(x_vault_token)
-    if vault_id:
-        vault_mod.add_photo_to_vault(vault_id, short_id, safe_name)
+    in_vault = False
+    if vault_id and vault_mod.can_upload_to_vault(vault_id, x_vault_upload_claim):
+        in_vault = vault_mod.add_photo_to_vault(vault_id, short_id, safe_name)
 
     return JSONResponse(
         {
@@ -265,7 +267,7 @@ async def upload_encrypted(
             "expires_at": meta["expires_at"],
             "burn_after_read": meta["burn_after_read"],
             "has_link_password": meta["has_link_password"],
-            "in_vault": vault_id is not None,
+            "in_vault": in_vault,
         }
     )
 
@@ -313,14 +315,36 @@ def _raw_response(blob: bytes | None, err: str | None) -> Response:
     )
 
 
+@app.post("/api/vault/check")
+async def vault_check_password(password: str = Form(...)):
+    if len(password.strip()) < 4:
+        return {"exists": False}
+    return {"exists": vault_mod.password_exists(password.strip())}
+
+
 @app.post("/api/vault/login")
-async def vault_login(password: str = Form(...)):
+async def vault_login(password: str = Form(...), intent: str = Form("auto")):
     if len(password.strip()) < 4:
         raise HTTPException(status_code=400, detail="Пароль минимум 4 символа")
-    result = vault_mod.login_or_create(password.strip())
+    result = vault_mod.login_or_create(password.strip(), intent=intent.strip() or "auto")
     if result is None:
         raise HTTPException(status_code=500, detail="Ошибка vault")
+    if result.get("error") == "password_taken":
+        raise HTTPException(
+            status_code=409,
+            detail="Этот пароль уже занят — выберите другой для нового Vault",
+        )
+    if result.get("error") == "not_found":
+        raise HTTPException(status_code=404, detail="Vault с таким паролем не найден")
     return result
+
+
+@app.get("/api/vault/me")
+async def vault_me(x_vault_token: str | None = Header(default=None)):
+    vault_id = vault_mod.resolve_token(x_vault_token)
+    if not vault_id:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    return {"vault_id": vault_id}
 
 
 @app.get("/api/vault/photos")
@@ -365,7 +389,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,

@@ -14,12 +14,22 @@
 </div>
 
 <div id="vault-badge" class="hidden mb-4 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2 text-[11px] text-violet-200 flex items-center justify-between gap-2">
-    <span><i class="fa-solid fa-bookmark mr-1 text-violet-400"></i>Vault активен — новые фото попадут в библиотеку</span>
+    <span><i class="fa-solid fa-bookmark mr-1 text-violet-400"></i>Твой Vault — фото попадут в библиотеку</span>
     <a href="/vault" class="text-violet-400 hover:text-violet-200 shrink-0">Открыть</a>
 </div>
 
+<div id="vault-foreign-block" class="hidden mb-4 rounded-xl border border-amber-900/40 bg-amber-950/15 px-3 py-3 space-y-2">
+    <p class="text-[11px] text-amber-100/90 leading-relaxed">
+        <i class="fa-solid fa-user-lock text-amber-400 mr-1"></i>
+        <strong>Чужой Vault</strong> — на этом устройстве нет ключей расшифровки. Загрузка заблокирована.
+    </p>
+    <a href="/vault" class="inline-block text-[11px] text-violet-300 hover:text-violet-100">Создать свой Vault →</a>
+</div>
+
+<p class="text-[10px] text-slate-600 leading-relaxed mb-4" id="upload-disclaimer"></p>
+
 <div id="drop-zone" class="fp-drop rounded-2xl p-6 sm:p-10 text-center cursor-pointer mb-5"
-     onclick="document.getElementById('file-input').click()">
+     onclick="if(uploadAllowed) document.getElementById('file-input').click()">
     <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="hidden">
     <i class="fa-solid fa-cloud-arrow-up text-3xl text-violet-500/50 mb-3"></i>
     <p class="text-sm text-slate-300 mb-1">Перетащи фото или нажми для выбора</p>
@@ -94,8 +104,10 @@
 {% block scripts %}
 <script src="/static/js/flowphoto-crypto.js"></script>
 <script src="/static/js/flowphoto-upload.js"></script>
+<script src="/static/js/flowphoto-vault.js"></script>
 <script>
     const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
+    let uploadAllowed = true;
     const MIN_RETENTION = {{ min_retention_seconds }};
     const MAX_RETENTION = {{ max_retention_seconds }};
     const DEFAULT_RETENTION = {{ default_retention_seconds }};
@@ -107,9 +119,20 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
 
-    if (FlowPhotoUpload.getVaultToken()) {
-        document.getElementById('vault-badge').classList.remove('hidden');
+    document.getElementById('upload-disclaimer').textContent = FlowPhotoUpload.VAULT_DISCLAIMER;
+
+    function applyUploadVaultUi(trust) {
+        uploadAllowed = trust !== 'foreign';
+        document.getElementById('vault-badge').classList.toggle('hidden', trust !== 'owner');
+        document.getElementById('vault-foreign-block').classList.toggle('hidden', trust !== 'foreign');
+        const dz = document.getElementById('drop-zone');
+        const btn = document.getElementById('upload-btn');
+        dz.classList.toggle('opacity-40', !uploadAllowed);
+        dz.classList.toggle('pointer-events-none', !uploadAllowed);
+        if (btn) btn.disabled = !uploadAllowed;
     }
+
+    FlowPhotoUpload.refreshVaultState().then(applyUploadVaultUi);
 
     const UNIT_SECONDS = { hours: 3600, days: 86400, weeks: 604800, months: 2592000 };
 
@@ -161,6 +184,7 @@
     });
 
     function addFiles(fileList) {
+        if (!uploadAllowed) { showToast('Создай свой Vault для загрузки'); return; }
         const incoming = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
         if (!incoming.length) { showToast('Нужны изображения'); return; }
         for (const f of incoming) {

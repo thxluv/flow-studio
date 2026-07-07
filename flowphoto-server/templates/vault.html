@@ -6,15 +6,60 @@
     <h1 class="font-display text-xl sm:text-2xl tracking-tight mb-2">FlowPhoto Vault</h1>
     <p class="text-sm text-slate-400 leading-relaxed">
         Опциональная библиотека на <span class="text-violet-300">одном пароле</span> — без email.
-        Ключи ссылок хранятся только в твоём браузере.
     </p>
 </div>
 
+<div class="rounded-xl border border-violet-900/30 bg-violet-950/10 px-3 py-2.5 mb-5 text-[11px] text-slate-400 leading-relaxed">
+    <i class="fa-solid fa-circle-info text-violet-400/70 mr-1"></i>
+    <span id="vault-disclaimer-text"></span>
+</div>
+
+<!-- Предупреждение: существующий пароль -->
+<div id="vault-warn-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
+    <div class="rounded-2xl border border-amber-900/50 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="flex items-start gap-3">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl mt-0.5"></i>
+            <div>
+                <h3 class="font-display text-base text-amber-100">Пароль уже используется</h3>
+                <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Такой пароль уже привязан к Vault. Вы войдёте в <strong class="text-slate-300">существующий</strong> аккаунт —
+                    возможно, чужой. Чужие фото всё равно не откроются: ключ <code class="text-violet-300">#...</code> только у загрузившего.
+                </p>
+            </div>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+            <button type="button" id="warn-confirm" class="fp-btn-primary flex-1 py-2.5 rounded-xl text-xs text-white">Войти всё равно</button>
+            <button type="button" id="warn-cancel" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
+        </div>
+    </div>
+</div>
+
 <div id="vault-login" class="rounded-2xl border border-violet-950/80 bg-black/30 p-5 sm:p-6 space-y-4 max-w-md">
-    <p class="text-xs text-slate-500">Введи пароль — если vault новый, он создастся автоматически</p>
     <input type="password" id="vault-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль Vault (мин. 4 символа)" autocomplete="current-password">
-    <button type="button" id="vault-login-btn" class="fp-btn-primary w-full py-3 rounded-xl text-sm text-white font-medium">
-        <i class="fa-solid fa-bookmark mr-1"></i>Войти / создать Vault
+    <div class="grid sm:grid-cols-2 gap-2">
+        <button type="button" id="vault-login-btn" class="fp-btn-primary py-3 rounded-xl text-sm text-white font-medium">
+            <i class="fa-solid fa-right-to-bracket mr-1"></i>Войти
+        </button>
+        <button type="button" id="vault-create-btn" class="fp-btn-secondary py-3 rounded-xl text-sm text-violet-200 font-medium">
+            <i class="fa-solid fa-plus mr-1"></i>Создать новый
+        </button>
+    </div>
+    <p class="text-[10px] text-slate-600">«Создать» требует уникальный пароль. «Войти» — если Vault уже был.</p>
+</div>
+
+<div id="vault-foreign" class="hidden rounded-2xl border border-amber-900/40 bg-amber-950/15 p-4 sm:p-5 space-y-3 mb-4">
+    <div class="flex items-start gap-2">
+        <i class="fa-solid fa-user-lock text-amber-400 mt-0.5"></i>
+        <div>
+            <div class="text-sm font-medium text-amber-100">Чужой Vault на этом устройстве</div>
+            <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                Ключей расшифровки здесь нет — загрузка в эту библиотеку заблокирована.
+                Создай <strong class="text-slate-300">свой Vault</strong> с другим паролем.
+            </p>
+        </div>
+    </div>
+    <button type="button" id="vault-create-own" class="fp-btn-primary w-full py-2.5 rounded-xl text-xs text-white">
+        Создать свой Vault
     </button>
 </div>
 
@@ -24,10 +69,7 @@
         <button type="button" id="vault-logout" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1">Выйти</button>
     </div>
     <div id="vault-list" class="space-y-2"></div>
-    <p class="text-[10px] text-slate-600 font-mono text-center">
-        Полные ссылки с ключами — только в этом браузере. На другом устройстве нужны сохранённые ссылки.
-    </p>
-    <a href="/" class="fp-btn-secondary block text-center py-3 rounded-xl text-xs text-violet-200 no-underline">
+    <a href="/" id="vault-upload-link" class="fp-btn-secondary block text-center py-3 rounded-xl text-xs text-violet-200 no-underline">
         <i class="fa-solid fa-cloud-arrow-up mr-1"></i>Загрузить новое фото
     </a>
 </div>
@@ -38,22 +80,38 @@
 <script src="/static/js/flowphoto-vault.js"></script>
 <script>
     const listEl = document.getElementById('vault-list');
+    let pendingPassword = '';
+    let pendingIntent = 'login';
+
+    document.getElementById('vault-disclaimer-text').textContent = FlowPhotoUpload.VAULT_DISCLAIMER;
+
+    function showForeignUi(isForeign) {
+        document.getElementById('vault-foreign').classList.toggle('hidden', !isForeign);
+        const link = document.getElementById('vault-upload-link');
+        if (link) link.classList.toggle('hidden', isForeign);
+        document.getElementById('vault-status').textContent = isForeign
+            ? 'Vault (только просмотр списка)'
+            : 'Vault активен — можно загружать';
+    }
 
     function renderPhotos(photos) {
         if (!photos.length) {
-            listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Пока пусто — загрузи фото с активным Vault</p>';
+            listEl.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">Пока пусто</p>';
             return;
         }
         listEl.innerHTML = photos.map(p => {
             const url = p.fullUrl;
+            const keyHint = p.hasLocalKey
+                ? ''
+                : '<span class="text-[10px] text-amber-500/90 block mt-0.5">Нет ключа на этом устройстве</span>';
             const openBtn = url
                 ? `<a href="${url}" class="py-1.5 px-3 text-[10px] border border-violet-500/40 rounded-lg text-violet-200 no-underline">Открыть</a>`
-                : `<span class="text-[10px] text-amber-500/80">Ключ только на устройстве загрузки</span>`;
-            const flags = p.burn_after_read ? '<span class="text-amber-400 text-[9px]">секрет</span>' : '';
+                : `<span class="text-[10px] text-amber-500/80">Ключ недоступен</span>`;
             return `<div class="rounded-xl border border-violet-950/80 bg-black/40 p-3 flex flex-wrap items-center gap-2 justify-between">
                 <div class="min-w-0 flex-1">
-                    <div class="text-xs text-slate-300 truncate">${p.original_name} ${flags}</div>
+                    <div class="text-xs text-slate-300 truncate">${p.original_name}</div>
                     <div class="text-[9px] text-slate-500 font-mono">${p.short_id} · просмотров: ${p.view_count}</div>
+                    ${keyHint}
                 </div>
                 <div class="flex gap-2 shrink-0">${openBtn}
                     ${url ? `<button type="button" class="copy-vault py-1.5 px-2 text-[10px] text-slate-400" data-url="${url.replace(/"/g,'&quot;')}">⎘</button>` : ''}
@@ -66,42 +124,90 @@
     }
 
     async function loadVault() {
+        const trust = await FlowPhotoUpload.refreshVaultState();
+        showForeignUi(trust === 'foreign');
         const photos = FlowPhotoVault.enrichWithLocalLinks(await FlowPhotoVault.vaultFetchPhotos());
         renderPhotos(photos);
     }
 
-    async function tryAutoLogin() {
-        if (!FlowPhotoUpload.getVaultToken()) return;
+    function showVaultContent() {
         document.getElementById('vault-login').classList.add('hidden');
         document.getElementById('vault-content').classList.remove('hidden');
+    }
+
+    function showWarnModal(pwd, intent) {
+        pendingPassword = pwd;
+        pendingIntent = intent;
+        document.getElementById('vault-warn-modal').classList.remove('hidden');
+    }
+
+    async function doLogin(pwd, intent) {
+        const data = await FlowPhotoVault.vaultLogin(pwd, intent);
+        showToast(data.created ? 'Vault создан' : 'Вход выполнен');
+        showVaultContent();
         await loadVault();
     }
 
-    document.getElementById('vault-login-btn').addEventListener('click', async () => {
+    async function handleAuth(intent) {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
         try {
-            const data = await FlowPhotoVault.vaultLogin(pwd);
-            showToast(data.created ? 'Vault создан' : 'Добро пожаловать');
-            document.getElementById('vault-login').classList.add('hidden');
-            document.getElementById('vault-content').classList.remove('hidden');
-            await loadVault();
+            if (intent === 'create') {
+                await doLogin(pwd, 'create');
+                return;
+            }
+            const exists = await FlowPhotoVault.checkPasswordExists(pwd);
+            if (exists) {
+                showWarnModal(pwd, 'login');
+                return;
+            }
+            await doLogin(pwd, 'auto');
+        } catch (e) {
+            showToast(e.message || 'Ошибка');
+        }
+    }
+
+    document.getElementById('vault-login-btn').addEventListener('click', () => handleAuth('login'));
+    document.getElementById('vault-create-btn').addEventListener('click', () => handleAuth('create'));
+    document.getElementById('warn-confirm').addEventListener('click', async () => {
+        document.getElementById('vault-warn-modal').classList.add('hidden');
+        try {
+            await doLogin(pendingPassword, pendingIntent);
         } catch (e) {
             showToast(e.message || 'Ошибка');
         }
     });
+    document.getElementById('warn-cancel').addEventListener('click', () => {
+        document.getElementById('vault-warn-modal').classList.add('hidden');
+        pendingPassword = '';
+    });
 
     document.getElementById('vault-logout').addEventListener('click', () => {
-        FlowPhotoUpload.setVaultToken('');
+        FlowPhotoUpload.clearVaultSession();
         document.getElementById('vault-content').classList.add('hidden');
+        document.getElementById('vault-foreign').classList.add('hidden');
         document.getElementById('vault-login').classList.remove('hidden');
-        showToast('Выход из Vault');
+        showToast('Выход');
+    });
+
+    document.getElementById('vault-create-own').addEventListener('click', () => {
+        FlowPhotoUpload.clearVaultSession();
+        document.getElementById('vault-content').classList.add('hidden');
+        document.getElementById('vault-foreign').classList.add('hidden');
+        document.getElementById('vault-login').classList.remove('hidden');
+        document.getElementById('vault-password').value = '';
+        document.getElementById('vault-password').focus();
+        showToast('Придумай новый пароль и нажми «Создать новый»');
     });
 
     document.getElementById('vault-password').addEventListener('keydown', e => {
         if (e.key === 'Enter') document.getElementById('vault-login-btn').click();
     });
 
-    tryAutoLogin();
+    (async () => {
+        if (!FlowPhotoUpload.getVaultToken()) return;
+        showVaultContent();
+        await loadVault();
+    })();
 </script>
 {% endblock %}
