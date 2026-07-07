@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}FlowPhoto — Просмотр{% endblock %}
+
+{% block content %}
+<div id="state-loading" class="rounded-2xl border border-violet-950/80 bg-black/40 p-12 text-center">
+    <i class="fa-solid fa-circle-notch fa-spin text-violet-400 text-2xl mb-3"></i>
+    <p class="text-sm text-slate-400">Расшифровка в браузере…</p>
+</div>
+
+<div id="state-no-key" class="hidden rounded-2xl border border-amber-900/40 bg-amber-950/15 p-6 text-center space-y-3">
+    <i class="fa-solid fa-key text-amber-400/70 text-2xl"></i>
+    <h2 class="font-display text-lg">Нужна полная ссылка</h2>
+    <p class="text-sm text-slate-400 max-w-md mx-auto">
+        Путь <code class="text-violet-300">/view/{{ short_id }}</code> без ключа не раскрывает фото.
+        Попроси отправителя ссылку с фрагментом <code class="text-violet-300">#...</code> в конце.
+    </p>
+</div>
+
+<div id="state-error" class="hidden rounded-2xl border border-red-900/40 bg-red-950/15 p-6 text-center">
+    <p class="text-sm text-red-300" id="error-text"></p>
+</div>
+
+<div id="state-done" class="hidden space-y-4">
+    <div class="rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-4 sm:p-6">
+        <div class="text-[10px] text-emerald-400/80 font-mono mb-3 uppercase tracking-wider">Расшифровано локально</div>
+        <div class="flex justify-center">
+            <img id="view-img" alt="Фото" class="rounded-xl max-h-[75vh] max-w-full object-contain shadow-2xl">
+        </div>
+        <div class="mt-4 text-[10px] text-slate-500 font-mono space-y-0.5" id="view-meta">
+            ID: {{ short_id }}<br>
+            Файл: {{ photo.original_name }}<br>
+            Загружено: {{ photo.created_at[:19].replace('T', ' ') }} UTC
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/flowphoto-crypto.js"></script>
+<script>
+    const SHORT_ID = {{ short_id | tojson }};
+    const MIME_TYPE = {{ photo.mime_type | tojson }};
+
+    function showState(name) {
+        ['loading', 'no-key', 'error', 'done'].forEach(s => {
+            document.getElementById('state-' + s)?.classList.toggle('hidden', s !== name);
+        });
+    }
+
+    async function decryptAndShow() {
+        const keyB64 = FlowPhotoCrypto.getKeyFromHash();
+        if (!keyB64) {
+            showState('no-key');
+            return;
+        }
+
+        showState('loading');
+        try {
+            const res = await fetch('/raw/' + SHORT_ID, { cache: 'no-store' });
+            if (!res.ok) throw new Error('Файл не найден на сервере');
+            const buf = await res.arrayBuffer();
+            const plain = await FlowPhotoCrypto.decryptPayload(buf, keyB64);
+            const blob = new Blob([plain], { type: MIME_TYPE });
+            document.getElementById('view-img').src = URL.createObjectURL(blob);
+            showState('done');
+        } catch (e) {
+            console.error(e);
+            document.getElementById('error-text').textContent =
+                e.message?.includes('decrypt') || e.name === 'OperationError'
+                    ? 'Неверный ключ в ссылке или повреждённый файл'
+                    : (e.message || 'Ошибка расшифровки');
+            showState('error');
+        }
+    }
+
+    window.addEventListener('hashchange', decryptAndShow);
+    decryptAndShow();
+</script>
+{% endblock %}

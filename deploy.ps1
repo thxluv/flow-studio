@@ -25,20 +25,17 @@ $files = @(
     "flowphoto.html",
     "deploy.ps1",
     "deploy.bat",
-    "start-host.bat",
+    "start-flowphoto.bat",
     "ДЕПЛОЙ.txt",
-    "ФОТОХОСТИНГ.txt",
     ".gitignore",
     "статус-проекта.txt",
     "план.txt",
     "обзор-проекта.txt",
     "сложные-задачи-позже.txt",
-    "flowphoto-host/server.js",
-    "flowphoto-storage"
+    "flowphoto-server"
 )
 
 git add @files 2>$null
-git add flowphoto-storage/*.json 2>$null
 git add -u
 
 $status = git status --porcelain
@@ -68,7 +65,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "Готово! Сайт обновится через 1–2 минуты:" -ForegroundColor Green
     Write-Host "  https://thxluv.github.io/flow-studio/" -ForegroundColor White
-    Write-Host "  https://thxluv.github.io/flow-studio/flowphoto.html" -ForegroundColor White
+    Write-Host "  FlowPhoto: start-flowphoto.bat -> http://127.0.0.1:8000/" -ForegroundColor White
 } else {
     Write-Host ""
     Write-Host "Push не удался. Проверь интернет и вход в GitHub (токен)." -ForegroundColor Red

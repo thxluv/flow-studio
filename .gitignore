@@ -6,6 +6,7 @@ desktop.ini
 # Редактор / Cursor
 .cursor/
 .terminals/
+terminals/
 *.log
 
 # Секреты (никогда в репозиторий)
@@ -16,3 +17,13 @@ desktop.ini
 # Временные
 *.tmp
 ~$*
+
+# FlowPhoto Server
+flowphoto-server/uploads/*
+!flowphoto-server/uploads/.gitkeep
+flowphoto-server/flowphoto.db
+flowphoto-server/__pycache__/
+flowphoto-server/app/__pycache__/
+*.pyc
+.venv/
+venv/

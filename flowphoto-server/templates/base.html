@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FlowPhoto{% endblock %}</title>
+    <meta name="description" content="FlowPhoto — приватный обмен фото. Шифрование в браузере, сервер хранит только ciphertext.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; background: #06060b; color: #e2e8f0; min-height: 100vh; }
+        .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 600; }
+        .fp-glass { background: rgba(12, 12, 20, 0.88); backdrop-filter: blur(12px); }
+        .fp-btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+            transition: transform 0.1s, box-shadow 0.15s;
+        }
+        .fp-btn-primary:hover:not(:disabled) { box-shadow: 0 0 24px rgba(139, 92, 246, 0.35); }
+        .fp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
+        .fp-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+        .fp-drop { border: 1px dashed rgba(139, 92, 246, 0.35); transition: all 0.2s; }
+        .fp-drop:hover, .fp-drop.dragover {
+            border-color: rgba(139, 92, 246, 0.65);
+            background: rgba(139, 92, 246, 0.06);
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="relative">
+    <nav class="border-b border-violet-950/80 fp-glass sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+            <a href="/" class="flex items-center gap-3 min-w-0 group">
+                <div class="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-eye-low-vision text-violet-400"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-display text-lg tracking-tight leading-none group-hover:text-violet-200 transition-colors">FlowPhoto</div>
+                    <div class="text-[10px] text-violet-400/60 font-mono tracking-widest mt-0.5">E2E · AES-GCM 256</div>
+                </div>
+            </a>
+            <a href="https://thxluv.github.io/flow-studio/index.html" class="text-xs text-slate-500 hover:text-violet-300 flex items-center gap-1.5 shrink-0 transition-colors">
+                <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                <span class="hidden sm:inline">FlowNote Studio</span>
+            </a>
+        </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="max-w-3xl mx-auto px-4 pb-8 text-center">
+        <p class="text-[10px] text-slate-600 font-mono">ZERO-KNOWLEDGE · KEY IN URL HASH ONLY</p>
+    </footer>
+
+    <div id="fp-toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-violet-950 border border-violet-500/40 text-sm text-violet-100 shadow-xl max-w-[90vw] text-center"></div>
+
+    <script>
+        function showToast(msg) {
+            const el = document.getElementById('fp-toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => el.classList.add('hidden'), 2800);
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

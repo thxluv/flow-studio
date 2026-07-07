@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}FlowPhoto — Загрузить фото{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="font-display text-2xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
+    <p class="text-sm text-slate-400 leading-relaxed">
+        Фото шифруется <span class="text-violet-300">в твоём браузере</span> (AES-GCM 256).
+        Сервер видит только зашифрованные байты. Ключ — в конце ссылки после <code class="text-violet-400/90">#</code>.
+    </p>
+</div>
+
+<div id="drop-zone" class="fp-drop rounded-2xl p-8 sm:p-12 text-center cursor-pointer mb-6"
+     onclick="document.getElementById('file-input').click()">
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+    <i class="fa-solid fa-cloud-arrow-up text-3xl text-violet-500/50 mb-3"></i>
+    <p class="text-sm text-slate-300 mb-1">Перетащи фото или нажми для выбора</p>
+    <p class="text-[10px] text-slate-500 font-mono">JPG · PNG · WebP · до {{ max_mb }} МБ · EXIF удаляется</p>
+</div>
+
+<div id="preview-block" class="hidden space-y-4 mb-6">
+    <div class="grid sm:grid-cols-2 gap-4">
+        <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 flex items-center justify-center min-h-[180px]">
+            <img id="preview-img" alt="Превью" class="rounded-xl max-w-full max-h-[240px] object-contain">
+        </div>
+        <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 text-xs text-slate-400 font-mono space-y-1" id="meta-report"></div>
+    </div>
+    <button type="button" id="upload-btn" class="fp-btn-primary w-full py-3.5 rounded-xl text-sm font-semibold text-white">
+        <i class="fa-solid fa-lock mr-1"></i>Зашифровать и получить ссылку
+    </button>
+</div>
+
+<div id="result-block" class="hidden rounded-2xl border border-violet-500/30 bg-violet-950/15 p-5 space-y-4">
+    <div class="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+        <i class="fa-solid fa-circle-check"></i> Готово — отправь полную ссылку
+    </div>
+    <p class="text-[11px] text-slate-400 leading-relaxed">
+        Короткий путь: <code class="text-violet-300" id="short-path"></code> — без <code>#ключ</code> фото не открыть.
+        Полная ссылка содержит ключ после <code>#</code>.
+    </p>
+    <div class="rounded-xl border border-violet-900/50 bg-black/40 px-3 py-2.5">
+        <div class="text-[10px] text-slate-500 mb-1">Полная ссылка (с ключом)</div>
+        <input type="text" readonly id="full-url" class="w-full bg-transparent text-[11px] font-mono text-violet-200 outline-none break-all">
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <button type="button" onclick="copyFullUrl()" class="flex-1 min-w-[140px] py-2.5 text-xs border border-violet-500/40 bg-violet-900/30 hover:bg-violet-900/50 rounded-xl text-violet-200">
+            <i class="fa-solid fa-copy mr-1"></i>Скопировать ссылку
+        </button>
+        <button type="button" onclick="resetUpload()" class="py-2.5 px-4 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-400">
+            Ещё фото
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/flowphoto-crypto.js"></script>
+<script>
+    const MAX_BYTES = {{ max_mb }} * 1024 * 1024;
+    let selectedFile = null;
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    ['dragenter', 'dragover'].forEach(ev => {
+        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(ev => {
+        dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+    dropZone.addEventListener('drop', e => {
+        const f = e.dataTransfer?.files?.[0];
+        if (f) handleFile(f);
+    });
+    fileInput.addEventListener('change', e => {
+        const f = e.target.files?.[0];
+        if (f) handleFile(f);
+        e.target.value = '';
+    });
+
+    function handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+            showToast('Нужен файл изображения');
+            return;
+        }
+        if (file.size > MAX_BYTES) {
+            showToast('Максимум {{ max_mb }} МБ');
+            return;
+        }
+        selectedFile = file;
+        const url = URL.createObjectURL(file);
+        document.getElementById('preview-img').src = url;
+        document.getElementById('meta-report').innerHTML =
+            `Файл: ${file.name}<br>Размер: ${(file.size / 1024).toFixed(1)} КБ<br>Тип: ${file.type}`;
+        document.getElementById('preview-block').classList.remove('hidden');
+        document.getElementById('result-block').classList.add('hidden');
+    }
+
+    document.getElementById('upload-btn').addEventListener('click', async () => {
+        if (!selectedFile) return;
+        const btn = document.getElementById('upload-btn');
+        btn.disabled = true;
+        const prev = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Шифруем и загружаем…';
+        try {
+            const { blob, mime } = await FlowPhotoCrypto.stripImageMetadata(selectedFile);
+            const { payload, keyBytes } = await FlowPhotoCrypto.encryptBlob(blob);
+            const form = new FormData();
+            form.append('encrypted_file', new Blob([payload], { type: 'application/octet-stream' }), 'encrypted.bin');
+            form.append('mime_type', mime);
+            form.append('original_name', selectedFile.name);
+
+            const res = await fetch('/upload', { method: 'POST', body: form });
+            const data = await res.json();
+            if (!res.ok) {
+                const d = data.detail;
+                throw new Error(typeof d === 'string' ? d : (Array.isArray(d) ? d.map(x => x.msg).join(', ') : 'Ошибка загрузки'));
+            }
+
+            const fullUrl = FlowPhotoCrypto.buildFullViewUrl(data.short_id, keyBytes);
+            document.getElementById('short-path').textContent = '/view/' + data.short_id;
+            document.getElementById('full-url').value = fullUrl;
+            document.getElementById('result-block').classList.remove('hidden');
+            showToast('Ссылка готова — скопируй и отправь');
+        } catch (e) {
+            console.error(e);
+            showToast(e.message || 'Не удалось загрузить');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = prev;
+        }
+    });
+
+    function copyFullUrl() {
+        const url = document.getElementById('full-url').value;
+        navigator.clipboard.writeText(url).then(() => showToast('Ссылка скопирована'));
+    }
+
+    function resetUpload() {
+        selectedFile = null;
+        document.getElementById('preview-block').classList.add('hidden');
+        document.getElementById('result-block').classList.add('hidden');
+        document.getElementById('preview-img').removeAttribute('src');
+    }
+</script>
+{% endblock %}
