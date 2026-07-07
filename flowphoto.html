@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowPhoto • Зашифрованный обмен фото</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --fp-accent: #8b5cf6;
+            --fp-accent-dim: #6d28d9;
+            --fp-glow: rgba(139, 92, 246, 0.35);
+            --fp-bg: #06060b;
+            --fp-surface: #0c0c14;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--fp-bg);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 600; }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+        .fp-glass {
+            background: rgba(12, 12, 20, 0.85);
+            backdrop-filter: blur(12px);
+        }
+
+        .fp-tab.active {
+            color: #c4b5fd;
+            border-color: rgba(139, 92, 246, 0.5);
+            background: rgba(139, 92, 246, 0.1);
+            box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
+        }
+
+        .fp-panel { display: none; }
+        .fp-panel.active { display: block; }
+
+        .fp-drop {
+            border: 1px dashed rgba(139, 92, 246, 0.35);
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+
+        .fp-drop:hover, .fp-drop.dragover {
+            border-color: rgba(139, 92, 246, 0.65);
+            background: rgba(139, 92, 246, 0.06);
+            box-shadow: 0 0 24px rgba(139, 92, 246, 0.08);
+        }
+
+        .fp-btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+            transition: transform 0.1s, box-shadow 0.15s;
+        }
+
+        .fp-btn-primary:hover:not(:disabled) {
+            box-shadow: 0 0 20px var(--fp-glow);
+        }
+
+        .fp-btn-primary:active:not(:disabled) { transform: scale(0.98); }
+        .fp-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .fp-scanline {
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(139, 92, 246, 0.02) 2px,
+                rgba(139, 92, 246, 0.02) 4px
+            );
+            pointer-events: none;
+        }
+
+        .fp-toast {
+            animation: fp-toast-in 0.25s ease;
+        }
+
+        @keyframes fp-toast-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fp-vault-card:hover { border-color: rgba(139, 92, 246, 0.35); }
+
+        #fp-preview-img { max-height: 280px; object-fit: contain; }
+    </style>
+</head>
+<body class="relative">
+    <div class="fp-scanline fixed inset-0 z-0"></div>
+
+    <!-- Nav -->
+    <nav class="relative z-10 border-b border-violet-950/80 fp-glass sticky top-0">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-eye-low-vision text-violet-400"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-display text-lg tracking-tight leading-none">FlowPhoto</div>
+                    <div class="text-[10px] text-violet-400/60 font-mono tracking-widest mt-0.5">EXIF ZERO · E2E LOCAL</div>
+                </div>
+            </div>
+            <a href="index.html" class="text-xs text-slate-500 hover:text-violet-300 flex items-center gap-1.5 shrink-0 transition-colors">
+                <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                <span class="hidden sm:inline">FlowNote Studio</span>
+                <span class="sm:hidden">Назад</span>
+            </a>
+        </div>
+    </nav>
+
+    <main class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <!-- Hero -->
+        <div class="mb-8">
+            <h1 class="font-display text-2xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
+            <p class="text-sm text-slate-400 leading-relaxed max-w-2xl">
+                Метаданные режутся <span class="text-violet-300">в твоём браузере</span>. Фото шифруется паролем.
+                Передаёшь файл <code class="text-violet-400/90 text-xs">.flowphoto</code> или код — сервер не нужен.
+            </p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1.5 mb-6 p-1 rounded-2xl border border-violet-950/80 bg-black/30">
+            <button type="button" onclick="showFpTab('send')" data-fp-tab="send" class="fp-tab active flex-1 text-xs sm:text-sm py-2.5 rounded-xl border border-transparent text-slate-400 transition-all">
+                <i class="fa-solid fa-upload mr-1 opacity-70"></i>Отправить
+            </button>
+            <button type="button" onclick="showFpTab('receive')" data-fp-tab="receive" class="fp-tab flex-1 text-xs sm:text-sm py-2.5 rounded-xl border border-transparent text-slate-400 transition-all">
+                <i class="fa-solid fa-key mr-1 opacity-70"></i>Получить
+            </button>
+            <button type="button" onclick="showFpTab('vault')" data-fp-tab="vault" class="fp-tab flex-1 text-xs sm:text-sm py-2.5 rounded-xl border border-transparent text-slate-400 transition-all">
+                <i class="fa-solid fa-box-archive mr-1 opacity-70"></i>Мой сейф
+            </button>
+        </div>
+
+        <!-- SEND -->
+        <div id="fp-panel-send" class="fp-panel active space-y-4">
+            <div id="fp-drop-zone" class="fp-drop rounded-2xl p-8 sm:p-12 text-center cursor-pointer"
+                 onclick="document.getElementById('fp-file-input').click()">
+                <input type="file" id="fp-file-input" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+                <i class="fa-solid fa-image text-3xl text-violet-500/50 mb-3"></i>
+                <p class="text-sm text-slate-300 mb-1">Перетащи фото или нажми для выбора</p>
+                <p class="text-[10px] text-slate-500 font-mono">JPG · PNG · WebP · до 15 МБ</p>
+            </div>
+
+            <div id="fp-process-block" class="hidden space-y-4">
+                <div class="flex items-center justify-between gap-2">
+                    <div id="fp-steps" class="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                        <span class="text-violet-400">①</span> очистка
+                        <span class="text-slate-700 mx-0.5">→</span><span>②</span> шифр
+                        <span class="text-slate-700 mx-0.5">→</span><span>③</span> передача
+                    </div>
+                    <button type="button" onclick="resetSendFlow()" class="text-[10px] text-slate-500 hover:text-violet-300">Новое фото</button>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 flex items-center justify-center min-h-[200px]">
+                        <img id="fp-preview-img" alt="Превью" class="rounded-xl max-w-full">
+                    </div>
+                    <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
+                        <div class="text-[10px] text-violet-400/70 font-mono uppercase tracking-wider">Очистка метаданных</div>
+                        <div id="fp-meta-report" class="text-xs text-slate-400 space-y-1.5 font-mono leading-relaxed"></div>
+                        <div class="pt-2 border-t border-violet-950/60">
+                            <span id="fp-strip-badge" class="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
+                                <i class="fa-solid fa-shield-halved"></i> EXIF ZERO
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-slate-500 mb-1 block">Секретная фраза</label>
+                            <div class="relative">
+                                <input type="password" id="fp-passphrase" placeholder="Только ты и получатель"
+                                       class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 pr-10 text-sm outline-none focus:border-violet-500/50 font-mono">
+                                <button type="button" onclick="togglePassVisibility('fp-passphrase', this)" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-violet-300 text-xs w-7 h-7" title="Показать"><i class="fa-solid fa-eye"></i></button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 mb-1 block">Повтори фразу</label>
+                            <input type="password" id="fp-passphrase-confirm" placeholder="Ещё раз"
+                                   class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-violet-500/50 font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 mb-1 block">Срок в твоём сейфе (напоминание)</label>
+                        <select id="fp-ttl" class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-sm outline-none">
+                            <option value="1h">1 час</option>
+                            <option value="24h" selected>24 часа</option>
+                            <option value="7d">7 дней</option>
+                            <option value="30d">30 дней</option>
+                            <option value="never">Без срока</option>
+                        </select>
+                        <p class="text-[10px] text-slate-600 mt-1">Пока без сервера — срок только в локальном сейфе. В файле .flowphoto дата тоже записывается.</p>
+                    </div>
+                    <button type="button" id="fp-encrypt-btn" onclick="encryptAndPackage()" class="fp-btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white">
+                        <i class="fa-solid fa-lock mr-1"></i>Зашифровать и подготовить
+                    </button>
+                </div>
+
+                <div id="fp-share-block" class="hidden rounded-2xl border border-violet-500/25 bg-violet-950/15 p-4 space-y-3">
+                    <div class="text-[10px] text-violet-300 font-mono uppercase tracking-wider">③ Готово к передаче</div>
+                    <div id="fp-share-id-row" class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[10px] text-slate-500">ID посылки</span>
+                        <code id="fp-share-id-value" class="text-xs font-mono text-violet-300 bg-black/40 px-2 py-1 rounded-lg border border-violet-900/50"></code>
+                        <button type="button" onclick="copyShareId()" class="text-[10px] text-slate-500 hover:text-violet-300">копировать</button>
+                    </div>
+                    <p class="text-xs text-slate-400">Полное качество — <strong class="text-slate-300">.flowphoto</strong>. Короткий код — <strong class="text-slate-300">мини-версия</strong> для чата. Фразу — отдельным сообщением.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="downloadFlowphotoFile()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-violet-500/40 bg-violet-900/30 hover:bg-violet-900/50 rounded-xl text-violet-200">
+                            <i class="fa-solid fa-download mr-1"></i>.flowphoto
+                        </button>
+                        <button type="button" onclick="downloadStandaloneHtml()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-300">
+                            <i class="fa-solid fa-file-code mr-1"></i>HTML
+                        </button>
+                        <button type="button" onclick="copyShareInstructions()" class="flex-1 min-w-[120px] py-2.5 text-xs border border-slate-700 hover:bg-slate-800 rounded-xl text-slate-300">
+                            <i class="fa-solid fa-message mr-1"></i>Инструкция
+                        </button>
+                    </div>
+                    <div id="fp-code-hint" class="hidden space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="text-[10px] text-slate-500">Короткий код <span class="text-violet-400/70">(мини · сжатый)</span></label>
+                            <span id="fp-code-size" class="text-[10px] font-mono text-slate-600"></span>
+                        </div>
+                        <input type="text" readonly id="fp-share-code" class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-xs font-mono text-violet-300/90 outline-none">
+                        <button type="button" onclick="copyShareCode()" class="w-full py-2 text-xs border border-violet-800/50 hover:bg-violet-900/30 rounded-xl text-violet-200">
+                            <i class="fa-solid fa-copy mr-1"></i>Скопировать код
+                        </button>
+                    </div>
+                    <p id="fp-code-too-big" class="hidden text-[10px] text-amber-400/90 leading-relaxed"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Для этого фото код не помещается — отправь файл <strong>.flowphoto</strong> или HTML. В Фазе B будет короткая ссылка на сервер.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECEIVE -->
+        <div id="fp-panel-receive" class="fp-panel space-y-4">
+            <div id="fp-receive-drop" class="fp-drop rounded-2xl p-6 text-center mb-2 cursor-pointer" onclick="document.getElementById('fp-import-input').click()">
+                <i class="fa-solid fa-file-arrow-down text-violet-500/50 mb-2"></i>
+                <p class="text-sm text-slate-400">Перетащи <code class="text-violet-400">.flowphoto</code> сюда</p>
+            </div>
+            <div class="rounded-2xl border border-violet-950/80 bg-black/40 p-4 space-y-3">
+                <p class="text-xs text-slate-400">Или вставь короткий код <code class="text-violet-400">FP3:</code> от отправителя + секретную фразу.</p>
+                <label class="block w-full py-2.5 px-4 border border-dashed border-violet-900/50 rounded-xl text-xs text-center cursor-pointer hover:border-violet-500/40 transition-colors">
+                    <i class="fa-solid fa-file-import mr-1 text-violet-400/70"></i> Выбрать файл
+                    <input type="file" id="fp-import-input" accept=".flowphoto,application/json" class="hidden">
+                </label>
+                <p id="fp-import-name" class="hidden text-[10px] text-emerald-400/80 font-mono"></p>
+                <div>
+                    <label class="text-[10px] text-slate-500 mb-1 block">Короткий код</label>
+                    <input type="text" id="fp-receive-code" placeholder="FP3:..."
+                           class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-xs font-mono outline-none focus:border-violet-500/50">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-500 mb-1 block">Секретная фраза</label>
+                    <input type="password" id="fp-receive-pass" placeholder="Фраза от отправителя"
+                           class="w-full bg-black/50 border border-violet-950 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-violet-500/50 font-mono">
+                </div>
+                <button type="button" onclick="decryptAndView()" class="fp-btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white">
+                    <i class="fa-solid fa-unlock mr-1"></i>Расшифровать
+                </button>
+            </div>
+            <div id="fp-receive-result" class="hidden rounded-2xl border border-emerald-900/40 bg-emerald-950/10 p-4">
+                <div class="text-[10px] text-emerald-400/80 font-mono mb-3 uppercase tracking-wider">Расшифровано</div>
+                <div class="flex justify-center mb-3">
+                    <img id="fp-receive-img" alt="Фото" class="rounded-xl max-h-[400px] max-w-full object-contain">
+                </div>
+                <div id="fp-receive-meta" class="text-[10px] text-slate-500 font-mono space-y-0.5"></div>
+            </div>
+            <p id="fp-receive-error" class="hidden text-xs text-red-400"></p>
+        </div>
+
+        <!-- VAULT -->
+        <div id="fp-panel-vault" class="fp-panel space-y-4">
+            <div class="flex flex-wrap items-center gap-2 justify-between">
+                <p class="text-xs text-slate-500">Только в <span class="text-violet-300">этом браузере</span>.</p>
+                <div class="flex gap-2">
+                    <button type="button" onclick="purgeExpiredVault()" class="text-[10px] text-slate-500 hover:text-violet-300">Просроченные</button>
+                    <button type="button" onclick="clearAllVault()" class="text-[10px] text-red-400/70 hover:text-red-400">Сжечь всё</button>
+                </div>
+            </div>
+            <input type="search" id="fp-vault-search" oninput="renderVault()" placeholder="Поиск по имени или ID…"
+                   class="w-full bg-black/40 border border-violet-950 rounded-xl px-3 py-2 text-xs outline-none focus:border-violet-500/40">
+            <div id="fp-vault-list" class="space-y-2">
+                <p class="text-sm text-slate-600 text-center py-8">Сейф пуст</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-12 pt-6 border-t border-violet-950/50 text-center space-y-1">
+            <p class="text-[10px] text-slate-600 font-mono">ZERO-KNOWLEDGE · NO SERVER · PHASE A</p>
+            <p class="text-[10px] text-slate-700">Регистрация и живые ссылки — в следующей фазе</p>
+        </div>
+    </main>
+
+    <div id="fp-toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-violet-950 border border-violet-500/40 text-sm text-violet-100 fp-toast shadow-xl"></div>
+
+    <script>
+        const FP_FORMAT = 'flowphoto-v1';
+        const FP_CODE_LEGACY = 'FP1:';
+        const FP_CODE_PREFIX = 'FP3:';
+        const FP_MAX_FILE = 15 * 1024 * 1024;
+        const FP_MAX_CHAT_CODE = 9000;
+        const FP_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const FP_DB_NAME = 'flowphoto_local';
+        const FP_DB_VERSION = 1;
+
+        let fpCurrentBlob = null;
+        let fpCurrentMeta = null;
+        let fpCurrentPackage = null;
+        let fpChatPackage = null;
+        let fpShareId = null;
+        let fpDb = null;
+
+        function showToast(msg) {
+            const el = document.getElementById('fp-toast');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(() => el.classList.add('hidden'), 2800);
+        }
+
+        function showFpTab(tab) {
+            document.querySelectorAll('.fp-tab').forEach(b => b.classList.toggle('active', b.dataset.fpTab === tab));
+            document.querySelectorAll('.fp-panel').forEach(p => p.classList.toggle('active', p.id === 'fp-panel-' + tab));
+            if (tab === 'vault') renderVault();
+        }
+
+        function bufToB64(buf) {
+            const bytes = new Uint8Array(buf);
+            let s = '';
+            for (let i = 0; i < bytes.length; i += 8192) {
+                s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            }
+            return btoa(s);
+        }
+
+        function b64ToBuf(b64) {
+            const bin = atob(b64);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+        }
+
+        function getRandomBytes(n) {
+            return crypto.getRandomValues(new Uint8Array(n));
+        }
+
+        async function deriveKeyFromSecret(secret, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw', enc.encode(secret), { name: 'PBKDF2' }, false, ['deriveKey']
+            );
+            return crypto.subtle.deriveKey(
+                { name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        async function encryptBytes(key, data) {
+            const iv = getRandomBytes(12);
+            const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+            return { iv: bufToB64(iv), ct: bufToB64(ct) };
+        }
+
+        async function decryptBytes(key, ivB64, ctB64) {
+            const iv = new Uint8Array(b64ToBuf(ivB64));
+            const ct = b64ToBuf(ctB64);
+            return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+        }
+
+        function ttlToExpires(ttl) {
+            if (ttl === 'never') return null;
+            const ms = { '1h': 3600000, '24h': 86400000, '7d': 604800000, '30d': 2592000000 }[ttl] || 86400000;
+            return new Date(Date.now() + ms).toISOString();
+        }
+
+        function generateShareId() {
+            let s = '';
+            const arr = getRandomBytes(8);
+            for (let i = 0; i < 8; i++) s += FP_ID_CHARS[arr[i] % FP_ID_CHARS.length];
+            return s.slice(0, 4) + '-' + s.slice(4);
+        }
+
+        function formatShareId(id) {
+            return id || '';
+        }
+
+        function b64urlEncode(bytes) {
+            let s = bufToB64(bytes instanceof Uint8Array ? bytes.buffer : bytes);
+            return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function b64urlDecode(str) {
+            let s = str.replace(/-/g, '+').replace(/_/g, '/');
+            while (s.length % 4) s += '=';
+            return new Uint8Array(b64ToBuf(s));
+        }
+
+        async function gzipBytes(data) {
+            if (typeof CompressionStream === 'undefined') return new Uint8Array(data);
+            const cs = new CompressionStream('gzip');
+            const writer = cs.writable.getWriter();
+            writer.write(data instanceof Uint8Array ? data : new Uint8Array(data));
+            writer.close();
+            const reader = cs.readable.getReader();
+            const chunks = [];
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+            }
+            const total = chunks.reduce((n, c) => n + c.length, 0);
+            const out = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { out.set(c, off); off += c.length; }
+            return out;
+        }
+
+        async function gunzipBytes(bytes) {
+            if (typeof DecompressionStream === 'undefined') return bytes;
+            const ds = new DecompressionStream('gzip');
+            const writer = ds.writable.getWriter();
+            writer.write(bytes);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const chunks = [];
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+            }
+            const total = chunks.reduce((n, c) => n + c.length, 0);
+            const out = new Uint8Array(total);
+            let off = 0;
+            for (const c of chunks) { out.set(c, off); off += c.length; }
+            return out;
+        }
+
+        async function encodePackageToCodeAsync(pkg) {
+            const json = JSON.stringify(pkg);
+            const compressed = await gzipBytes(new TextEncoder().encode(json));
+            return FP_CODE_PREFIX + b64urlEncode(compressed);
+        }
+
+        async function decodePackageFromCode(code) {
+            const trimmed = code.trim().replace(/\s+/g, '');
+            if (trimmed.startsWith(FP_CODE_PREFIX)) {
+                const raw = b64urlDecode(trimmed.slice(FP_CODE_PREFIX.length));
+                const dec = await gunzipBytes(raw);
+                return JSON.parse(new TextDecoder().decode(dec));
+            }
+            if (trimmed.startsWith(FP_CODE_LEGACY)) {
+                const json = decodeURIComponent(escape(atob(trimmed.slice(FP_CODE_LEGACY.length))));
+                return JSON.parse(json);
+            }
+            throw new Error('Неверный формат');
+        }
+
+        function loadImageFromBlob(blob) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Ошибка изображения')); };
+                img.src = url;
+            });
+        }
+
+        async function resizeBlobForChat(blob, maxDim, quality) {
+            const img = await loadImageFromBlob(blob);
+            let w = img.naturalWidth, h = img.naturalHeight;
+            if (w > maxDim || h > maxDim) {
+                const r = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * r);
+                h = Math.round(h * r);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            return new Promise((res, rej) => {
+                canvas.toBlob(b => b ? res(b) : rej(new Error('resize')), 'image/jpeg', quality);
+            });
+        }
+
+        async function buildEncryptedPackage(blob, meta, pass, extra = {}) {
+            const salt = getRandomBytes(16);
+            const key = await deriveKeyFromSecret(pass, salt);
+            const raw = await blob.arrayBuffer();
+            const { iv, ct } = await encryptBytes(key, raw);
+            return {
+                format: FP_FORMAT,
+                salt: bufToB64(salt),
+                iv,
+                ct,
+                meta: { ...meta, ...extra }
+            };
+        }
+
+        async function buildChatPackage(pass, ttl, shareId) {
+            const qualities = [0.72, 0.62, 0.52, 0.42];
+            const dims = [800, 640, 512, 400, 320];
+            for (const dim of dims) {
+                for (const q of qualities) {
+                    const chatBlob = await resizeBlobForChat(fpCurrentBlob, dim, q);
+                    const chatMeta = {
+                        ...fpCurrentMeta,
+                        mime: 'image/jpeg',
+                        cleanSize: chatBlob.size,
+                        variant: 'chat',
+                        shareId,
+                        expiresAt: ttlToExpires(ttl),
+                        ttlLabel: ttl,
+                        chatMaxDim: dim,
+                        chatQuality: q
+                    };
+                    const pkg = await buildEncryptedPackage(chatBlob, chatMeta, pass);
+                    const code = await encodePackageToCodeAsync(pkg);
+                    if (code.length <= FP_MAX_CHAT_CODE) {
+                        return { pkg, code, dim, size: chatBlob.size };
+                    }
+                }
+            }
+            return null;
+        }
+
+        function togglePassVisibility(inputId, btn) {
+            const inp = document.getElementById(inputId);
+            if (!inp) return;
+            const show = inp.type === 'password';
+            inp.type = show ? 'text' : 'password';
+            btn.innerHTML = show ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+        }
+
+        function resetSendFlow() {
+            fpCurrentBlob = null;
+            fpCurrentMeta = null;
+            fpCurrentPackage = null;
+            fpChatPackage = null;
+            fpShareId = null;
+            document.getElementById('fp-process-block').classList.add('hidden');
+            document.getElementById('fp-share-block').classList.add('hidden');
+            document.getElementById('fp-passphrase').value = '';
+            document.getElementById('fp-passphrase-confirm').value = '';
+            document.getElementById('fp-preview-img').removeAttribute('src');
+        }
+
+        function loadImageFromFile(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось прочитать изображение')); };
+                img.src = url;
+            });
+        }
+
+        async function readExifHints(file) {
+            const hints = { gps: false, camera: false, datetime: false, fields: [] };
+            try {
+                const mod = await import('https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.esm.mjs');
+                const meta = await mod.parse(file, { gps: true, xmp: true, iptc: true });
+                if (!meta) return hints;
+                if (meta.latitude != null || meta.longitude != null) {
+                    hints.gps = true;
+                    hints.fields.push(`GPS: ${meta.latitude?.toFixed(4)}, ${meta.longitude?.toFixed(4)}`);
+                }
+                if (meta.Make || meta.Model) {
+                    hints.camera = true;
+                    hints.fields.push(`Камера: ${[meta.Make, meta.Model].filter(Boolean).join(' ')}`);
+                }
+                if (meta.DateTimeOriginal || meta.CreateDate) {
+                    hints.datetime = true;
+                    hints.fields.push(`Дата: ${meta.DateTimeOriginal || meta.CreateDate}`);
+                }
+                if (meta.Software) hints.fields.push(`ПО: ${meta.Software}`);
+            } catch (_) {
+                hints.fields.push('EXIF: будет удалён при перекодировании');
+            }
+            return hints;
+        }
+
+        async function stripImageMetadata(file) {
+            const img = await loadImageFromFile(file);
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const quality = mime === 'image/jpeg' ? 0.92 : undefined;
+            const blob = await new Promise((res, rej) => {
+                canvas.toBlob(b => b ? res(b) : rej(new Error('Ошибка перекодирования')), mime, quality);
+            });
+            return { blob, width: img.naturalWidth, height: img.naturalHeight, mime };
+        }
+
+        async function processSelectedFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                showToast('Нужен файл изображения');
+                return;
+            }
+            if (file.size > FP_MAX_FILE) {
+                showToast('Максимум 15 МБ');
+                return;
+            }
+
+            const exifHints = await readExifHints(file);
+            const stripped = await stripImageMetadata(file);
+
+            fpCurrentBlob = stripped.blob;
+            fpCurrentMeta = {
+                name: file.name,
+                mime: stripped.mime,
+                originalSize: file.size,
+                cleanSize: stripped.blob.size,
+                width: stripped.width,
+                height: stripped.height,
+                strippedFields: exifHints.fields,
+                hadGps: exifHints.gps,
+                created: new Date().toISOString()
+            };
+            fpCurrentPackage = null;
+            fpChatPackage = null;
+
+            const url = URL.createObjectURL(stripped.blob);
+            document.getElementById('fp-preview-img').src = url;
+            document.getElementById('fp-process-block').classList.remove('hidden');
+            document.getElementById('fp-share-block').classList.add('hidden');
+
+            const report = document.getElementById('fp-meta-report');
+            const saved = file.size - stripped.blob.size;
+            report.innerHTML = [
+                `Имя: ${file.name}`,
+                `Было: ${(file.size / 1024).toFixed(1)} КБ`,
+                `Стало: ${(stripped.blob.size / 1024).toFixed(1)} КБ`,
+                saved > 0 ? `Убрано: ${(saved / 1024).toFixed(1)} КБ метаданных/мусора` : 'Перекодировано без метаданных',
+                `Размер: ${stripped.width}×${stripped.height}`,
+                ...exifHints.fields.map(f => `<span class="text-amber-400/80">⚠ ${f}</span>`),
+                '<span class="text-emerald-400/90">✓ GPS, EXIF, IPTC, XMP — удалены</span>'
+            ].join('<br>');
+
+            showToast('Метаданные очищены');
+        }
+
+        async function encryptAndPackage() {
+            if (!fpCurrentBlob) return;
+            const pass = document.getElementById('fp-passphrase').value;
+            const confirm = document.getElementById('fp-passphrase-confirm').value;
+            if (pass.length < 4) { showToast('Фраза минимум 4 символа'); return; }
+            if (pass !== confirm) { showToast('Фразы не совпадают'); return; }
+
+            const btn = document.getElementById('fp-encrypt-btn');
+            btn.disabled = true;
+            btn.textContent = 'Шифруем…';
+
+            try {
+                const ttl = document.getElementById('fp-ttl').value;
+                fpShareId = generateShareId();
+
+                fpCurrentPackage = await buildEncryptedPackage(fpCurrentBlob, fpCurrentMeta, pass, {
+                    shareId: fpShareId,
+                    expiresAt: ttlToExpires(ttl),
+                    ttlLabel: ttl,
+                    variant: 'full'
+                });
+
+                await saveToVault(fpCurrentPackage);
+                document.getElementById('fp-share-block').classList.remove('hidden');
+                document.getElementById('fp-share-id-value').textContent = fpShareId;
+                document.getElementById('fp-steps').innerHTML = '<span class="text-emerald-400">✓</span> <span class="text-violet-300">готово к передаче</span>';
+
+                const chatResult = await buildChatPackage(pass, ttl, fpShareId);
+                const codeEl = document.getElementById('fp-share-code');
+                const codeHint = document.getElementById('fp-code-hint');
+                const tooBig = document.getElementById('fp-code-too-big');
+                const sizeEl = document.getElementById('fp-code-size');
+
+                if (chatResult) {
+                    fpChatPackage = chatResult.pkg;
+                    codeEl.value = chatResult.code;
+                    codeHint.classList.remove('hidden');
+                    tooBig.classList.add('hidden');
+                    sizeEl.textContent = `${chatResult.code.length} симв. · ~${(chatResult.size / 1024).toFixed(0)} КБ · ${chatResult.dim}px`;
+                } else {
+                    fpChatPackage = null;
+                    codeHint.classList.add('hidden');
+                    tooBig.classList.remove('hidden');
+                }
+
+                showToast('Зашифровано и сохранено в сейф');
+            } catch (e) {
+                showToast('Ошибка шифрования');
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-lock mr-1"></i>Зашифровать и подготовить';
+            }
+        }
+
+        function downloadFlowphotoFile() {
+            if (!fpCurrentPackage) return;
+            const blob = new Blob([JSON.stringify(fpCurrentPackage, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (fpCurrentMeta?.name || 'photo').replace(/\.[^.]+$/, '') + '.flowphoto';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Файл .flowphoto скачан');
+        }
+
+        function buildStandaloneHtml(pkg) {
+            const payload = JSON.stringify(pkg).replace(/</g, '\\u003c');
+            return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlowPhoto</title>
+<style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#06060b;color:#e2e8f0;font-family:system-ui,sans-serif;padding:20px}
+.card{max-width:420px;width:100%;border:1px solid #3b0764;border-radius:16px;padding:24px;background:#0c0c14}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid #2e1065;background:#000;color:#fff;margin:8px 0 16px;font-family:monospace}
+button{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-weight:600;cursor:pointer}
+img{max-width:100%;border-radius:12px;margin-top:16px;display:none}
+.err{color:#f87171;font-size:12px;margin-top:8px;display:none}
+.tag{font-size:10px;color:#8b5cf6;font-family:monospace;letter-spacing:.1em}</style></head><body>
+<div class="card"><div class="tag">FLOWPHOTO · OFFLINE VIEWER</div><h2 style="margin:12px 0 8px;font-size:18px">Расшифровка фото</h2>
+<p style="font-size:13px;color:#94a3b8;margin:0 0 12px">Введи секретную фразу от отправителя.</p>
+<input type="password" id="p" placeholder="Секретная фраза">
+<button onclick="go()">Открыть</button><p class="err" id="e"></p><img id="i" alt=""></div>
+<script>
+const PKG=${payload};
+async function derive(s,sl){const e=new TextEncoder(),km=await crypto.subtle.importKey('raw',e.encode(s),{name:'PBKDF2'},false,['deriveKey']);
+return crypto.subtle.deriveKey({name:'PBKDF2',salt:sl,iterations:310000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);}
+function b64(b){const x=atob(b),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);return u;}
+async function go(){const p=document.getElementById('p').value,e=document.getElementById('e'),img=document.getElementById('i');
+e.style.display='none';try{const k=await derive(p,b64(PKG.salt)),d=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(PKG.iv)},k,b64(PKG.ct));
+const u=URL.createObjectURL(new Blob([d],{type:PKG.meta.mime||'image/jpeg'}));img.src=u;img.style.display='block';}catch(err){e.textContent='Неверная фраза или повреждённый файл';e.style.display='block';}}
+<\/script></body></html>`;
+        }
+
+        function downloadStandaloneHtml() {
+            if (!fpCurrentPackage) return;
+            const html = buildStandaloneHtml(fpCurrentPackage);
+            const blob = new Blob([html], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (fpCurrentMeta?.name || 'photo').replace(/\.[^.]+$/, '') + '-flowphoto.html';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('HTML-просмотр скачан');
+        }
+
+        function copyShareCode() {
+            const code = document.getElementById('fp-share-code').value;
+            if (!code) { showToast('Код недоступен — используй .flowphoto'); return; }
+            navigator.clipboard.writeText(code).then(() => showToast('Код скопирован'));
+        }
+
+        function copyShareId() {
+            if (!fpShareId) return;
+            navigator.clipboard.writeText(fpShareId).then(() => showToast('ID скопирован'));
+        }
+
+        function copyShareInstructions() {
+            if (!fpCurrentPackage) return;
+            const id = fpCurrentPackage.meta?.shareId || fpShareId || '—';
+            const hasCode = !!document.getElementById('fp-share-code').value;
+            const lines = [
+                'FlowPhoto — зашифрованное фото',
+                `ID посылки: ${id}`,
+                hasCode ? '1) Скопируй короткий код (FP3:…) из FlowPhoto' : '1) Скачай файл .flowphoto',
+                hasCode ? '2) Открой flowphoto.html → Получить → вставь код' : '2) Открой flowphoto.html → Получить → загрузи файл',
+                '3) Введи секретную фразу (отправлю отдельно)',
+                'Без фразы фото не открыть. EXIF удалён до шифрования.'
+            ];
+            navigator.clipboard.writeText(lines.join('\n')).then(() => showToast('Инструкция скопирована'));
+        }
+
+        async function decryptPackage(pkg, pass) {
+            if (pkg.format !== FP_FORMAT) throw new Error('Неизвестный формат');
+            const salt = new Uint8Array(b64ToBuf(pkg.salt));
+            const key = await deriveKeyFromSecret(pass, salt);
+            const plain = await decryptBytes(key, pkg.iv, pkg.ct);
+            return { blob: new Blob([plain], { type: pkg.meta?.mime || 'image/jpeg' }), meta: pkg.meta };
+        }
+
+        async function decryptAndView() {
+            const errEl = document.getElementById('fp-receive-error');
+            const resEl = document.getElementById('fp-receive-result');
+            errEl.classList.add('hidden');
+            resEl.classList.add('hidden');
+
+            const pass = document.getElementById('fp-receive-pass').value;
+            if (!pass) { errEl.textContent = 'Введи секретную фразу'; errEl.classList.remove('hidden'); return; }
+
+            let pkg = window._fpImportPackage || null;
+            const code = document.getElementById('fp-receive-code').value.trim();
+            if (!pkg && code) {
+                try { pkg = await decodePackageFromCode(code); } catch (e) {
+                    errEl.textContent = 'Неверный или повреждённый код'; errEl.classList.remove('hidden'); return;
+                }
+            }
+            if (!pkg) { errEl.textContent = 'Загрузи .flowphoto или вставь код'; errEl.classList.remove('hidden'); return; }
+
+            try {
+                const { blob, meta } = await decryptPackage(pkg, pass);
+                if (meta?.expiresAt && new Date(meta.expiresAt) < new Date()) {
+                    errEl.textContent = 'Срок действия истёк (по метке в файле)'; errEl.classList.remove('hidden'); return;
+                }
+                document.getElementById('fp-receive-img').src = URL.createObjectURL(blob);
+                document.getElementById('fp-receive-meta').innerHTML = [
+                    meta?.shareId && `ID: ${meta.shareId}`,
+                    meta?.name && `Файл: ${meta.name}`,
+                    meta?.width && `Размер: ${meta.width}×${meta.height}`,
+                    meta?.variant === 'chat' && '<span class="text-amber-400/80">Мини-версия для чата (не полное качество)</span>',
+                    meta?.expiresAt && `Истекает: ${new Date(meta.expiresAt).toLocaleString('ru-RU')}`,
+                    'EXIF удалён до шифрования'
+                ].filter(Boolean).join('<br>');
+                resEl.classList.remove('hidden');
+                showToast('Фото расшифровано');
+            } catch (e) {
+                errEl.textContent = 'Неверная фраза или повреждённый пакет';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function openFpDb() {
+            return new Promise((resolve, reject) => {
+                if (fpDb) { resolve(fpDb); return; }
+                const req = indexedDB.open(FP_DB_NAME, FP_DB_VERSION);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('shares')) {
+                        db.createObjectStore('shares', { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => { fpDb = req.result; resolve(fpDb); };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function saveToVault(pkg) {
+            const db = await openFpDb();
+            const id = crypto.randomUUID();
+            const record = { id, package: pkg, created: new Date().toISOString() };
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('shares', 'readwrite');
+                tx.objectStore('shares').put(record);
+                tx.oncomplete = () => resolve(id);
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function getAllVaultRecords() {
+            const db = await openFpDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('shares', 'readonly');
+                const req = tx.objectStore('shares').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function deleteVaultRecord(id) {
+            const db = await openFpDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('shares', 'readwrite');
+                tx.objectStore('shares').delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function purgeExpiredVault() {
+            const records = await getAllVaultRecords();
+            let n = 0;
+            for (const r of records) {
+                const exp = r.package?.meta?.expiresAt;
+                if (exp && new Date(exp) < new Date()) {
+                    await deleteVaultRecord(r.id);
+                    n++;
+                }
+            }
+            renderVault();
+            showToast(n ? `Удалено ${n} просроченных` : 'Просроченных нет');
+        }
+
+        async function clearAllVault() {
+            if (!confirm('Удалить все записи из сейфа в этом браузере?')) return;
+            const records = await getAllVaultRecords();
+            for (const r of records) await deleteVaultRecord(r.id);
+            renderVault();
+            showToast('Сейф очищен');
+        }
+
+        window.clearAllVault = clearAllVault;
+
+        async function renderVault() {
+            const list = document.getElementById('fp-vault-list');
+            const q = (document.getElementById('fp-vault-search')?.value || '').trim().toLowerCase();
+            let records = await getAllVaultRecords();
+            if (q) {
+                records = records.filter(r => {
+                    const m = r.package?.meta || {};
+                    return (m.name || '').toLowerCase().includes(q) ||
+                        (m.shareId || '').toLowerCase().includes(q);
+                });
+            }
+            if (!records.length) {
+                list.innerHTML = '<p class="text-sm text-slate-600 text-center py-8">' + (q ? 'Ничего не найдено' : 'Сейф пуст') + '</p>';
+                return;
+            }
+            records.sort((a, b) => new Date(b.created) - new Date(a.created));
+            list.innerHTML = records.map(r => {
+                const m = r.package?.meta || {};
+                const exp = m.expiresAt;
+                const expired = exp && new Date(exp) < new Date();
+                const expLabel = exp ? new Date(exp).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'без срока';
+                const sid = m.shareId ? `<span class="text-violet-400/70">${m.shareId}</span> · ` : '';
+                return `<div class="fp-vault-card rounded-xl border border-violet-950/80 bg-black/30 px-4 py-3 flex items-center gap-3 ${expired ? 'opacity-50' : ''}">
+                    <div class="w-10 h-10 rounded-lg bg-violet-900/30 flex items-center justify-center shrink-0"><i class="fa-solid fa-image text-violet-400/70 text-sm"></i></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm truncate text-slate-300">${m.name || 'Фото'} ${m.variant === 'chat' ? '<span class="text-[9px] text-amber-500/80">мини</span>' : ''}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">${sid}${new Date(r.created).toLocaleString('ru-RU')} · ${expLabel}</div>
+                    </div>
+                    <button type="button" onclick="reexportVault('${r.id}')" class="text-[10px] px-2 py-1 border border-violet-800/50 rounded-lg text-violet-300 hover:bg-violet-900/30" title="Скачать">↓</button>
+                    <button type="button" onclick="deleteVaultItem('${r.id}')" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-950/40 text-slate-500 hover:text-red-400" title="Удалить">×</button>
+                </div>`;
+            }).join('');
+        }
+
+        async function reexportVault(id) {
+            const records = await getAllVaultRecords();
+            const r = records.find(x => x.id === id);
+            if (!r) return;
+            fpCurrentPackage = r.package;
+            fpCurrentMeta = r.package.meta;
+            const blob = new Blob([JSON.stringify(r.package, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (r.package.meta?.name || 'photo').replace(/\.[^.]+$/, '') + '.flowphoto';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Экспортировано');
+        }
+
+        window.deleteVaultItem = async function(id) {
+            await deleteVaultRecord(id);
+            renderVault();
+            showToast('Удалено из сейфа');
+        };
+
+        window.reexportVault = reexportVault;
+
+        // Drop zone
+        const dropZone = document.getElementById('fp-drop-zone');
+        ['dragenter', 'dragover'].forEach(ev => {
+            dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        });
+        ['dragleave', 'drop'].forEach(ev => {
+            dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+        });
+        dropZone.addEventListener('drop', e => {
+            const f = e.dataTransfer?.files?.[0];
+            if (f) processSelectedFile(f);
+        });
+
+        document.getElementById('fp-file-input').addEventListener('change', e => {
+            const f = e.target.files?.[0];
+            if (f) processSelectedFile(f);
+            e.target.value = '';
+        });
+
+        function loadFlowphotoFile(f) {
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    window._fpImportPackage = JSON.parse(reader.result);
+                    document.getElementById('fp-import-name').textContent = '✓ ' + f.name;
+                    document.getElementById('fp-import-name').classList.remove('hidden');
+                    showToast('Файл загружен — введи фразу');
+                } catch (_) {
+                    showToast('Неверный файл .flowphoto');
+                }
+            };
+            reader.readAsText(f);
+        }
+
+        document.getElementById('fp-import-input').addEventListener('change', e => {
+            loadFlowphotoFile(e.target.files?.[0]);
+            e.target.value = '';
+        });
+
+        const recvDrop = document.getElementById('fp-receive-drop');
+        ['dragenter', 'dragover'].forEach(ev => {
+            recvDrop.addEventListener(ev, e => { e.preventDefault(); recvDrop.classList.add('dragover'); });
+        });
+        ['dragleave', 'drop'].forEach(ev => {
+            recvDrop.addEventListener(ev, e => { e.preventDefault(); recvDrop.classList.remove('dragover'); });
+        });
+        recvDrop.addEventListener('drop', e => {
+            const f = e.dataTransfer?.files?.[0];
+            if (f) loadFlowphotoFile(f);
+        });
+
+        document.getElementById('fp-receive-code').addEventListener('paste', () => {
+            setTimeout(() => showFpTab('receive'), 0);
+        });
+
+        function tryLoadCodeFromHash() {
+            const hash = location.hash.slice(1);
+            if (!hash.startsWith('code=')) return;
+            const code = decodeURIComponent(hash.slice(5));
+            document.getElementById('fp-receive-code').value = code;
+            showFpTab('receive');
+        }
+
+        window.addEventListener('load', () => {
+            tryLoadCodeFromHash();
+            purgeExpiredVault().catch(() => {});
+        });
+    </script>
+</body>
+</html>

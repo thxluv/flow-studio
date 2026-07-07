@@ -1,0 +1,18 @@
+# Системное
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Редактор / Cursor
+.cursor/
+.terminals/
+*.log
+
+# Секреты (никогда в репозиторий)
+.env
+*.pem
+*.key
+
+# Временные
+*.tmp
+~$*
