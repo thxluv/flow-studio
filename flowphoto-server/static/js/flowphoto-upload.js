@@ -241,6 +241,21 @@
         _vaultId = null;
     }
 
+    /** Имя для сервера — без данных из исходного файла пользователя. */
+    function anonymousUploadName(mime) {
+        const extByMime = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+            'image/gif': 'png',
+        };
+        const ext = extByMime[mime] || 'jpg';
+        const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+            : Math.random().toString(36).slice(2, 14);
+        return `photo_${rand}.${ext}`;
+    }
+
     async function uploadEncryptedFile(file, options) {
         if (!canUpload()) {
             throw new Error('Чужой FlowVault — создай свой с другим паролем');
@@ -253,7 +268,8 @@
         const form = new FormData();
         form.append('encrypted_file', new Blob([payload], { type: 'application/octet-stream' }), 'encrypted.bin');
         form.append('mime_type', mime);
-        form.append('original_name', file.name);
+        const storageName = anonymousUploadName(mime);
+        form.append('original_name', storageName);
         form.append('retention_seconds', String(opts.retentionSeconds || 2592000));
         form.append('burn_after_read', opts.burnAfterRead ? '1' : '0');
         if (opts.linkPassword) form.append('link_password', opts.linkPassword);
@@ -274,8 +290,8 @@
         }
 
         const fullUrl = FlowPhotoCrypto.buildFullViewUrl(data.short_id, keyBytes);
-        if (data.in_vault || (token && isVaultOwner())) saveVaultLink(data.short_id, fullUrl, file.name);
-        return { ...data, fullUrl, keyBytes, fileName: file.name };
+        if (data.in_vault || (token && isVaultOwner())) saveVaultLink(data.short_id, fullUrl, storageName);
+        return { ...data, fullUrl, keyBytes, fileName: storageName };
     }
 
     function renderQr(canvasOrId, url) {
