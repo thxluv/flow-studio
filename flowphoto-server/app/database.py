@@ -337,13 +337,52 @@ def fetch_encrypted_blob(
     return blob, None
 
 
+def entity_counts() -> tuple[int, int]:
+    """(photos, vaults). Если таблиц ещё нет — (0, 0)."""
+    if not DB_PATH.exists() or DB_PATH.stat().st_size == 0:
+        return 0, 0
+    try:
+        with get_connection() as conn:
+            photos = int(
+                conn.execute("SELECT COUNT(*) AS c FROM photos").fetchone()["c"]
+            )
+            try:
+                vaults = int(
+                    conn.execute("SELECT COUNT(*) AS c FROM vaults").fetchone()["c"]
+                )
+            except sqlite3.OperationalError:
+                vaults = 0
+            return photos, vaults
+    except sqlite3.Error:
+        return 0, 0
+
+
+def sqlite_row_counts_at(path: Path) -> tuple[int, int] | None:
+    """Считает строки в файле БД без подмены DB_PATH. None — файл битый/пустой."""
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+        try:
+            photos = int(conn.execute("SELECT COUNT(*) FROM photos").fetchone()[0])
+            try:
+                vaults = int(conn.execute("SELECT COUNT(*) FROM vaults").fetchone()[0])
+            except sqlite3.OperationalError:
+                vaults = 0
+            return photos, vaults
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+
+
 def storage_stats() -> dict[str, Any]:
     total = get_total_storage_bytes()
-    with get_connection() as conn:
-        count = conn.execute("SELECT COUNT(*) AS c FROM photos").fetchone()["c"]
+    photos_count, vaults_count = entity_counts()
     usage = shutil.disk_usage(DATA_DIR)
     return {
-        "photos_count": count,
+        "photos_count": photos_count,
+        "vaults_count": vaults_count,
         "storage_bytes": total,
         "storage_max_bytes": MAX_STORAGE_BYTES,
         "disk_free_bytes": usage.free,

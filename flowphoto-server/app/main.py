@@ -17,7 +17,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.backup import _BACKUP_INTERVAL, backup_configured, restore_latest_backup_if_needed, run_backup
+from app.backup import (
+    _BACKUP_INTERVAL,
+    backup_configured,
+    restore_latest_backup_if_needed,
+    run_backup,
+)
 from app.database import (
     DATA_DIR,
     DEFAULT_RETENTION_SECONDS,
@@ -27,6 +32,7 @@ from app.database import (
     cleanup_expired_photos,
     cleanup_storage_overflow,
     clamp_retention,
+    entity_counts,
     fetch_encrypted_blob,
     get_photo,
     init_db,
@@ -56,7 +62,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.4.1",
+    version="3.4.2",
 )
 
 
@@ -168,11 +174,15 @@ async def _periodic_tasks() -> None:
 @app.on_event("startup")
 async def on_startup() -> None:
     ensure_vault_secret_configured()
-    restore_latest_backup_if_needed()
+    restored = restore_latest_backup_if_needed()
     init_db()
+    if not restored:
+        restore_latest_backup_if_needed()
+        init_db()
     cleanup_expired_photos()
     cleanup_storage_overflow()
-    if backup_configured():
+    photos, vaults = entity_counts()
+    if backup_configured() and (photos > 0 or vaults > 0):
         asyncio.create_task(asyncio.to_thread(run_backup))
     asyncio.create_task(_periodic_tasks())
 
@@ -434,7 +444,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.4.1",
+        "version": "3.4.2",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,

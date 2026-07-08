@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.database import DB_PATH, DATA_DIR
+from app.database import DB_PATH, DATA_DIR, entity_counts, sqlite_row_counts_at
 
 logger = logging.getLogger("flowphoto.backup")
 
@@ -29,7 +30,6 @@ def _s3_client():
 
     endpoint = os.environ.get("FLOWPHOTO_BACKUP_ENDPOINT") or None
     session = boto3.session.Session()
-    # path-style — нужен для Storj; R2 тоже работает
     return session.client(
         "s3",
         endpoint_url=endpoint,
@@ -46,57 +46,144 @@ def _backup_prefix() -> str:
     return os.environ.get("FLOWPHOTO_BACKUP_PREFIX", "flowphoto/").rstrip("/")
 
 
+def _has_meaningful_data(photos: int, vaults: int) -> bool:
+    return photos > 0 or vaults > 0
+
+
 def _db_needs_restore() -> bool:
+    """Восстанавливать, если БД нет или в ней нет ни фото, ни аккаунтов Vault."""
     if not DB_PATH.exists():
         return True
     try:
-        return DB_PATH.stat().st_size == 0
+        if DB_PATH.stat().st_size == 0:
+            return True
     except OSError:
         return True
+    photos, vaults = entity_counts()
+    return not _has_meaningful_data(photos, vaults)
 
 
-def _latest_backup_key(client, bucket: str, prefix: str) -> str | None:
-    paginator = client.get_paginator("list_objects_v2")
-    latest_key = None
-    latest_time = None
+def _head_metadata(client, bucket: str, key: str) -> tuple[int, int]:
+    """(photos, vaults) из S3 Metadata, (-1,-1) если нет."""
+    try:
+        head = client.head_object(Bucket=bucket, Key=key)
+        meta = head.get("Metadata") or {}
+        if "photos" in meta and "vaults" in meta:
+            return int(meta["photos"]), int(meta["vaults"])
+    except Exception:
+        pass
+    return -1, -1
+
+
+def _list_backup_objects(client, bucket: str, prefix: str) -> list[dict]:
+    """Все .db в префиксе, новые первыми."""
     full_prefix = f"{prefix}/" if prefix else ""
+    entries: list[dict] = []
+    paginator = client.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket, Prefix=full_prefix):
         for obj in page.get("Contents") or []:
             key = obj.get("Key") or ""
             if not key.endswith(".db"):
                 continue
-            modified = obj.get("LastModified")
-            if latest_time is None or (modified and modified > latest_time):
-                latest_time = modified
-                latest_key = key
-    return latest_key
+            mp, mv = _head_metadata(client, bucket, key)
+            entries.append(
+                {
+                    "key": key,
+                    "modified": obj.get("LastModified"),
+                    "size": int(obj.get("Size") or 0),
+                    "meta_photos": mp,
+                    "meta_vaults": mv,
+                }
+            )
+    entries.sort(
+        key=lambda x: x["modified"] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return entries
+
+
+def _snapshot_db(dest: Path) -> tuple[int, int]:
+    """Консистентная копия SQLite (включая WAL). Возвращает (photos, vaults)."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    src = sqlite3.connect(DB_PATH, timeout=30)
+    dst = sqlite3.connect(dest)
+    try:
+        src.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        src.backup(dst)
+        dst.commit()
+    finally:
+        dst.close()
+        src.close()
+    counts = sqlite_row_counts_at(dest)
+    if counts is None:
+        return 0, 0
+    return counts
+
+
+def _try_restore_key(client, bucket: str, key: str) -> tuple[bool, int, int]:
+    tmp = DATA_DIR / "_restore_tmp.db"
+    try:
+        if tmp.exists():
+            tmp.unlink()
+        client.download_file(bucket, key, str(tmp))
+        if tmp.stat().st_size == 0:
+            return False, 0, 0
+        counts = sqlite_row_counts_at(tmp)
+        if counts is None:
+            return False, 0, 0
+        photos, vaults = counts
+        if DB_PATH.exists():
+            DB_PATH.unlink()
+        shutil.move(str(tmp), str(DB_PATH))
+        logger.info(
+            "Restored database from s3://%s/%s (photos=%s, vaults=%s)",
+            bucket,
+            key,
+            photos,
+            vaults,
+        )
+        return True, photos, vaults
+    except Exception as exc:
+        logger.warning("Failed to restore %s: %s", key, exc)
+        return False, 0, 0
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
 
 
 def restore_latest_backup_if_needed() -> bool:
-    """Скачивает последний .db из R2/S3, если локальная БД пуста или отсутствует."""
+    """Скачивает лучший .db из S3, если локально нет аккаунтов/фото."""
     if not backup_configured():
         return False
     if not _db_needs_restore():
+        photos, vaults = entity_counts()
+        logger.info("Skip restore: local DB has data (photos=%s, vaults=%s)", photos, vaults)
         return False
 
     try:
         client = _s3_client()
         bucket = os.environ["FLOWPHOTO_BACKUP_BUCKET"]
         prefix = _backup_prefix()
-        key = _latest_backup_key(client, bucket, prefix)
-        if not key:
+        objects = _list_backup_objects(client, bucket, prefix)
+        if not objects:
             logger.warning("No backup objects found in s3://%s/%s", bucket, prefix)
             return False
 
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = DATA_DIR / "_restore_tmp.db"
-        client.download_file(bucket, key, str(tmp))
-        if tmp.stat().st_size == 0:
-            tmp.unlink(missing_ok=True)
-            return False
-        shutil.move(str(tmp), str(DB_PATH))
-        logger.info("Restored database from s3://%s/%s", bucket, key)
-        return True
+        # Перебираем от новых к старым — берём первый бэкап с аккаунтом или фото
+        for obj in objects:
+            key = obj["key"]
+            mp, mv = obj["meta_photos"], obj["meta_vaults"]
+            if mp >= 0 and mv >= 0 and not _has_meaningful_data(mp, mv):
+                continue
+            ok, photos, vaults = _try_restore_key(client, bucket, key)
+            if ok and _has_meaningful_data(photos, vaults):
+                return True
+            if DB_PATH.exists():
+                DB_PATH.unlink(missing_ok=True)
+
+        # Все бэкапы пустые — подтянуть хотя бы последний (схема)
+        ok, _, _ = _try_restore_key(client, bucket, objects[0]["key"])
+        return ok
     except Exception as exc:
         logger.exception("Restore failed: %s", exc)
         return False
@@ -113,7 +200,10 @@ def _prune_old_backups(client, bucket: str, prefix: str, keep: int) -> None:
             key = obj.get("Key") or ""
             if key.endswith(".db"):
                 entries.append((obj.get("LastModified"), key))
-    entries.sort(key=lambda x: x[0] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    entries.sort(
+        key=lambda x: x[0] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
     for _, key in entries[keep:]:
         try:
             client.delete_object(Bucket=bucket, Key=key)
@@ -129,17 +219,38 @@ def run_backup() -> bool:
         logger.warning("DB not found: %s", DB_PATH)
         return False
 
+    photos, vaults = entity_counts()
+    if not _has_meaningful_data(photos, vaults):
+        logger.info("Skip backup: database empty (no photos or vault accounts)")
+        return False
+
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     tmp = DATA_DIR / f"flowphoto_backup_{stamp}.db"
     try:
-        shutil.copy2(DB_PATH, tmp)
+        snap_photos, snap_vaults = _snapshot_db(tmp)
         bucket = os.environ["FLOWPHOTO_BACKUP_BUCKET"]
         prefix = _backup_prefix()
         key = f"{prefix}/flowphoto_{stamp}.db"
         client = _s3_client()
-        client.upload_file(str(tmp), bucket, key)
+        client.upload_file(
+            str(tmp),
+            bucket,
+            key,
+            ExtraArgs={
+                "Metadata": {
+                    "photos": str(snap_photos),
+                    "vaults": str(snap_vaults),
+                }
+            },
+        )
         _prune_old_backups(client, bucket, prefix, _BACKUP_KEEP)
-        logger.info("Backup uploaded: s3://%s/%s", bucket, key)
+        logger.info(
+            "Backup uploaded: s3://%s/%s (photos=%s, vaults=%s)",
+            bucket,
+            key,
+            snap_photos,
+            snap_vaults,
+        )
         return True
     except Exception as exc:
         logger.exception("Backup failed: %s", exc)
