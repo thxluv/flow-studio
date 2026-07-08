@@ -17,24 +17,55 @@
 </div>
 
 <!-- Модал: бэкап -->
-<div id="vault-backup-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70">
-    <div class="rounded-2xl border border-violet-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
+<div id="vault-backup-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 overflow-y-auto">
+    <div class="rounded-2xl border border-violet-900/40 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl my-auto">
         <div>
             <h3 class="font-display text-base text-violet-100" id="backup-modal-title">Бэкап FlowVault</h3>
             <p class="text-xs text-slate-400 mt-2 leading-relaxed" id="backup-modal-hint"></p>
         </div>
-        <div id="backup-file-row" class="hidden space-y-2">
-            <input type="file" id="backup-file-input" accept=".flowvault,application/json" class="hidden">
-            <button type="button" id="backup-file-pick" class="w-full py-2.5 rounded-xl text-xs border border-dashed border-violet-500/30 text-violet-200/80 hover:bg-violet-950/20">
-                <i class="fa-solid fa-file mr-1"></i><span id="backup-file-label">Выбрать файл .flowvault</span>
-            </button>
+        <div id="backup-password-info" class="hidden rounded-xl border border-violet-500/25 bg-violet-950/25 px-3.5 py-3 space-y-2 text-[11px] leading-relaxed">
+            <p class="text-violet-100 font-medium"><i class="fa-solid fa-key mr-1 text-violet-400"></i>Два разных пароля — не путай</p>
+            <p class="text-slate-400"><span class="text-violet-200">Пароль бэкапа</span> — открывает файл <code class="text-violet-300/90">.flowvault</code> и возвращает ключи на это устройство.</p>
+            <p class="text-slate-400"><span class="text-emerald-200">Пароль FlowVault</span> — вход в сейф (тот, что при «Создать»). Без него нельзя зайти в аккаунт, даже после восстановления файла.</p>
         </div>
-        <input type="password" id="backup-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль бэкапа" autocomplete="new-password">
+        <div id="backup-file-row" class="hidden space-y-2">
+            <input type="file" id="backup-file-input" accept="*/*" class="sr-only">
+            <button type="button" id="backup-file-pick" class="w-full py-3 rounded-xl text-xs border border-dashed border-violet-500/35 text-violet-200/90 hover:bg-violet-950/25 min-h-[48px]">
+                <i class="fa-solid fa-file-arrow-up mr-1"></i><span id="backup-file-label">Выбрать файл .flowvault</span>
+            </button>
+            <p class="text-[10px] text-slate-600 leading-relaxed">На телефоне выбирай из «Файлы» / Downloads — любое имя, главное что это твой бэкап FlowVault.</p>
+        </div>
+        <div id="backup-password-block" class="space-y-2">
+            <label for="backup-password" class="block text-[11px] font-medium text-violet-200" id="backup-password-label">Пароль бэкапа</label>
+            <input type="password" id="backup-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль, который задал при скачивании .flowvault" autocomplete="new-password">
+        </div>
         <input type="password" id="backup-password-confirm" class="hidden fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Повтори пароль бэкапа" autocomplete="new-password">
+        <p id="backup-modal-error" class="hidden text-[11px] text-red-300/90 rounded-lg border border-red-900/40 bg-red-950/25 px-3 py-2"></p>
         <div class="flex flex-col sm:flex-row gap-2">
             <button type="button" id="backup-modal-action" class="fp-btn-primary flex-1 py-2.5 rounded-xl text-xs text-white">Продолжить</button>
             <button type="button" id="backup-modal-cancel" class="flex-1 py-2.5 rounded-xl text-xs border border-slate-600 text-slate-400">Отмена</button>
         </div>
+    </div>
+</div>
+
+<!-- После восстановления .flowvault -->
+<div id="vault-restore-done-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75">
+    <div class="rounded-2xl border-2 border-emerald-500/35 bg-slate-950 p-5 sm:p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="text-center">
+            <div class="w-14 h-14 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-3">
+                <i class="fa-solid fa-circle-check text-2xl text-emerald-400"></i>
+            </div>
+            <h3 class="font-display text-lg text-emerald-100">Ключи восстановлены</h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed" id="restore-done-stats"></p>
+        </div>
+        <div class="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3.5 py-3 text-[11px] text-amber-100/90 leading-relaxed space-y-2">
+            <p class="font-medium text-amber-50"><i class="fa-solid fa-right-to-bracket mr-1"></i>Следующий шаг — войти в FlowVault</p>
+            <p>Файл <code class="text-amber-200/90">.flowvault</code> вернул ключи расшифровки и право загружать фото <strong>на этом устройстве</strong>.</p>
+            <p>Для входа в аккаунт нужен <strong>пароль FlowVault</strong> — тот, что ты указал при первом «Создать», а не пароль бэкапа.</p>
+        </div>
+        <button type="button" id="restore-done-ok" class="fp-btn-primary w-full py-3 rounded-xl text-sm text-white font-medium">
+            Понятно — ввести пароль FlowVault
+        </button>
     </div>
 </div>
 
@@ -59,11 +90,18 @@
 </div>
 
 <div id="vault-login" class="rounded-2xl border border-violet-950/80 bg-black/30 p-5 sm:p-6 space-y-5 max-w-md mx-auto">
+    <div id="vault-login-restore-hint" class="hidden rounded-xl border-2 border-emerald-500/40 bg-emerald-950/20 px-3.5 py-3 space-y-1.5">
+        <p class="text-xs font-medium text-emerald-100"><i class="fa-solid fa-circle-check mr-1"></i>Бэкап применён — остался вход в сейф</p>
+        <p class="text-[11px] text-slate-400 leading-relaxed">Введи <strong class="text-emerald-200/90">пароль FlowVault</strong> (при «Создать»), не пароль от файла .flowvault.</p>
+    </div>
     <div>
         <h2 class="font-display text-base text-slate-100 mb-1">Вход в сейф</h2>
-        <p class="text-[11px] text-slate-500">Пароль хранится только у тебя. Потерял — доступ не восстановить без бэкапа.</p>
+        <p class="text-[11px] text-slate-500">Пароль хранится только у тебя. Потерял — восстанови ключи из .flowvault, но пароль сейфа всё равно нужен.</p>
     </div>
-    <input type="password" id="vault-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль FlowVault" autocomplete="current-password">
+    <div>
+        <label for="vault-password" class="block text-[11px] font-medium text-violet-200 mb-1.5">Пароль FlowVault</label>
+        <input type="password" id="vault-password" class="fp-text-input w-full px-3 py-2.5 rounded-xl text-sm" placeholder="Пароль при создании сейфа" autocomplete="current-password">
+    </div>
     <div class="grid grid-cols-2 gap-2">
         <button type="button" id="vault-login-btn" class="fp-btn-primary py-3 rounded-xl text-sm text-white font-medium">
             <i class="fa-solid fa-right-to-bracket mr-1"></i>Войти
@@ -124,7 +162,10 @@
         <summary><span><i class="fa-solid fa-shield-halved text-violet-400 mr-1.5 text-xs"></i>Бэкап ключей</span></summary>
         <div class="fp-vault-panel-body space-y-3">
             <p class="text-[11px] text-slate-500 leading-relaxed">
-                Файл <code class="text-violet-300/80">.flowvault</code> — зашифрованные ключи и права. Сервер не видит содержимое.
+                Файл <code class="text-violet-300/80">.flowvault</code> — зашифрованные ключи и права на этом устройстве. Сервер не видит содержимое.
+            </p>
+            <p class="text-[10px] text-slate-600 leading-relaxed rounded-lg border border-violet-900/30 bg-violet-950/10 px-2.5 py-2">
+                <strong class="text-violet-300/90">Важно:</strong> бэкап ≠ вход в аккаунт. Пароль бэкапа открывает файл; пароль FlowVault — для входа, загрузки и удаления.
             </p>
             <p class="text-[10px] text-slate-600 font-mono" id="backup-stats"></p>
             <div class="grid grid-cols-2 gap-2">
@@ -185,6 +226,17 @@
             : `Все ${photos.length} фото можно забэкапить с ключами`;
     }
 
+    function setBackupModalError(msg) {
+        const el = document.getElementById('backup-modal-error');
+        if (!msg) {
+            el.classList.add('hidden');
+            el.textContent = '';
+            return;
+        }
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+
     function closeBackupModal() {
         document.getElementById('vault-backup-modal').classList.add('hidden');
         backupModalMode = '';
@@ -193,6 +245,27 @@
         document.getElementById('backup-password-confirm').value = '';
         document.getElementById('backup-file-input').value = '';
         document.getElementById('backup-file-label').textContent = 'Выбрать файл .flowvault';
+        setBackupModalError('');
+    }
+
+    function showRestoreLoginHint() {
+        document.getElementById('vault-login-restore-hint').classList.remove('hidden');
+        const pwd = document.getElementById('vault-password');
+        pwd.classList.add('ring-2', 'ring-emerald-500/50');
+        pwd.focus();
+        pwd.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function clearRestoreLoginHint() {
+        document.getElementById('vault-login-restore-hint').classList.add('hidden');
+        document.getElementById('vault-password').classList.remove('ring-2', 'ring-emerald-500/50');
+    }
+
+    function showRestoreDoneModal(result) {
+        let stats = `Восстановлено ключей: ${result.keyed}`;
+        if (!result.hasOwner) stats += ' · загрузка возможна после входа в свой сейф';
+        document.getElementById('restore-done-stats').textContent = stats;
+        document.getElementById('vault-restore-done-modal').classList.remove('hidden');
     }
 
     function openBackupModal(mode) {
@@ -200,6 +273,8 @@
         backupSelectedFile = null;
         const fileRow = document.getElementById('backup-file-row');
         const confirmPwd = document.getElementById('backup-password-confirm');
+        const pwdInfo = document.getElementById('backup-password-info');
+        const pwdLabel = document.getElementById('backup-password-label');
         const title = document.getElementById('backup-modal-title');
         const hint = document.getElementById('backup-modal-hint');
         const action = document.getElementById('backup-modal-action');
@@ -208,30 +283,37 @@
         document.getElementById('backup-password-confirm').value = '';
         document.getElementById('backup-file-input').value = '';
         document.getElementById('backup-file-label').textContent = 'Выбрать файл .flowvault';
+        setBackupModalError('');
 
         if (mode === 'export') {
             title.textContent = 'Скачать бэкап';
-            hint.textContent = 'Придумай пароль бэкапа — без него файл бесполезен. Это может быть другой пароль, не пароль FlowVault.';
+            hint.textContent = 'Придумай отдельный пароль бэкапа — он шифрует файл .flowvault на диске.';
+            pwdInfo.classList.add('hidden');
+            pwdLabel.textContent = 'Пароль бэкапа (новый)';
             fileRow.classList.add('hidden');
             confirmPwd.classList.remove('hidden');
             action.textContent = 'Скачать .flowvault';
         } else {
-            title.textContent = 'Восстановить из бэкапа';
-            hint.textContent = 'Выбери файл .flowvault и введи пароль бэкапа. После восстановления войди в FlowVault обычным паролем.';
+            title.textContent = 'Восстановить из .flowvault';
+            hint.textContent = 'Шаг 1: выбери файл. Шаг 2: введи пароль бэкапа (от скачивания).';
+            pwdInfo.classList.remove('hidden');
+            pwdLabel.textContent = 'Пароль бэкапа (от файла)';
+            document.getElementById('backup-password').placeholder = 'Не путай с паролем FlowVault';
             fileRow.classList.remove('hidden');
             confirmPwd.classList.add('hidden');
-            action.textContent = 'Восстановить';
+            action.textContent = 'Расшифровать файл';
         }
         document.getElementById('vault-backup-modal').classList.remove('hidden');
     }
 
     async function runBackupModalAction() {
         const pwd = document.getElementById('backup-password').value;
+        setBackupModalError('');
         try {
             if (backupModalMode === 'export') {
                 const pwd2 = document.getElementById('backup-password-confirm').value;
-                if (pwd.length < 4) { showToast('Пароль бэкапа — минимум 4 символа'); return; }
-                if (pwd !== pwd2) { showToast('Пароли не совпадают'); return; }
+                if (pwd.length < 4) { setBackupModalError('Пароль бэкапа — минимум 4 символа'); return; }
+                if (pwd !== pwd2) { setBackupModalError('Пароли не совпадают'); return; }
                 const r = await FlowVaultBackup.exportBackupFile(pwd);
                 closeBackupModal();
                 let msg = `Бэкап сохранён: ${r.keyed} ключей`;
@@ -239,20 +321,18 @@
                 if (!r.hasOwner) msg += ' · без upload_claim — только просмотр';
                 showToast(msg);
             } else {
-                if (!backupSelectedFile) { showToast('Выбери файл'); return; }
+                if (!backupSelectedFile) { setBackupModalError('Сначала выбери файл .flowvault'); return; }
+                if (pwd.length < 4) { setBackupModalError('Введи пароль бэкапа (минимум 4 символа)'); return; }
                 const r = await FlowVaultBackup.importBackupFile(backupSelectedFile, pwd);
                 closeBackupModal();
-                let msg = `Восстановлено ключей: ${r.keyed}`;
-                if (!r.hasOwner) msg += ' · только просмотр, пока нет upload_claim';
-                msg += ' · войди паролем FlowVault';
-                showToast(msg);
                 document.getElementById('vault-content').classList.add('hidden');
                 document.getElementById('vault-foreign').classList.add('hidden');
                 document.getElementById('vault-login').classList.remove('hidden');
                 setLoginView();
+                showRestoreDoneModal(r);
             }
         } catch (e) {
-            showToast(e.message || 'Ошибка');
+            setBackupModalError(e.message || 'Ошибка');
         }
     }
 
@@ -469,15 +549,26 @@
         confirmAction = null;
     });
 
+    document.getElementById('restore-done-ok').addEventListener('click', () => {
+        document.getElementById('vault-restore-done-modal').classList.add('hidden');
+        showRestoreLoginHint();
+    });
+
     document.getElementById('vault-login-btn').addEventListener('click', async () => {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
-        try { await doLogin(pwd, 'login'); } catch (e) { showToast(e.message); }
+        try {
+            await doLogin(pwd, 'login');
+            clearRestoreLoginHint();
+        } catch (e) { showToast(e.message); }
     });
     document.getElementById('vault-create-btn').addEventListener('click', async () => {
         const pwd = document.getElementById('vault-password').value;
         if (pwd.length < 4) { showToast('Минимум 4 символа'); return; }
-        try { await doLogin(pwd, 'create'); } catch (e) { showToast(e.message); }
+        try {
+            await doLogin(pwd, 'create');
+            clearRestoreLoginHint();
+        } catch (e) { showToast(e.message); }
     });
     document.getElementById('vault-logout').addEventListener('click', () => {
         FlowPhotoUpload.clearVaultSession();
@@ -499,7 +590,14 @@
     document.getElementById('backup-file-input').addEventListener('change', (e) => {
         const f = e.target.files?.[0];
         backupSelectedFile = f || null;
-        document.getElementById('backup-file-label').textContent = f ? f.name : 'Выбрать файл .flowvault';
+        setBackupModalError('');
+        if (f) {
+            document.getElementById('backup-file-label').textContent = '✓ ' + f.name;
+            document.getElementById('backup-file-pick').classList.add('border-emerald-500/40', 'bg-emerald-950/15');
+        } else {
+            document.getElementById('backup-file-label').textContent = 'Выбрать файл .flowvault';
+            document.getElementById('backup-file-pick').classList.remove('border-emerald-500/40', 'bg-emerald-950/15');
+        }
     });
 
     document.getElementById('vault-create-own').addEventListener('click', () => {

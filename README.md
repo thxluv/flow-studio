@@ -27,12 +27,14 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - `public-config.json` — URL FlowNote и FlowPhoto для GitHub Pages
 - `flow-config.js` — подгружает конфиг и проставляет ссылки
 
-## Деплой
+## Деплой и управление
 
-- **FlowNote:** GitHub Pages (`index.html` в корне)
-- **FlowPhoto:** `render.yaml` → **Starter + disk 1GB** + Docker
+**Шпаргалка:** [УПРАВЛЕНИЕ.md](УПРАВЛЕНИЕ.md) — ссылки, мониторинг, env, Storj.
 
-**Render Free** не сохраняет данные. Бесплатная страховка — [Storj 25 ГБ](archive/STORJ-FREE-RENDER.md) (бэкап БД каждые 30 мин).
+- **Залить изменения:** двойной клик `deploy.bat`
+- **FlowNote:** GitHub Pages (обновляется после push)
+- **FlowPhoto:** Render Free + Docker, бэкап в [Storj 25 ГБ](archive/STORJ-FREE-RENDER.md) каждые 30 мин
+- **Env для Render:** `archive/render-flowphoto.env` → импорт в Dashboard
 
 Подробности сервера: [flowphoto-server/README.md](flowphoto-server/README.md)
 
