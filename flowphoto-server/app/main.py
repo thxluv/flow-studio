@@ -20,8 +20,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.backup import (
     _BACKUP_INTERVAL,
     backup_configured,
+    backup_status,
     restore_latest_backup_if_needed,
     run_backup,
+    schedule_auto_backup,
 )
 from app.database import (
     DATA_DIR,
@@ -50,6 +52,7 @@ STATIC_DIR = BASE_DIR / "static"
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
 CLEANUP_INTERVAL_SECONDS = 3600
+_BACKUP_TICK_SECONDS = min(300, max(60, _BACKUP_INTERVAL))
 
 DEFAULT_ORIGINS = [
     "https://thxluv.github.io",
@@ -62,7 +65,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.4.2",
+    version="3.4.3",
 )
 
 
@@ -157,16 +160,20 @@ async def _read_upload(upload: UploadFile) -> bytes:
 
 
 async def _periodic_tasks() -> None:
-    backup_counter = 0
+    backup_elapsed = 0
+    cleanup_elapsed = 0
     while True:
-        await asyncio.sleep(CLEANUP_INTERVAL_SECONDS)
+        await asyncio.sleep(_BACKUP_TICK_SECONDS)
         try:
-            cleanup_expired_photos()
-            cleanup_storage_overflow()
-            backup_counter += CLEANUP_INTERVAL_SECONDS
-            if backup_configured() and backup_counter >= _BACKUP_INTERVAL:
-                run_backup()
-                backup_counter = 0
+            cleanup_elapsed += _BACKUP_TICK_SECONDS
+            if cleanup_elapsed >= CLEANUP_INTERVAL_SECONDS:
+                cleanup_expired_photos()
+                cleanup_storage_overflow()
+                cleanup_elapsed = 0
+            backup_elapsed += _BACKUP_TICK_SECONDS
+            if backup_configured() and backup_elapsed >= _BACKUP_INTERVAL:
+                await asyncio.to_thread(run_backup)
+                backup_elapsed = 0
         except Exception:
             pass
 
@@ -268,6 +275,8 @@ async def upload_encrypted(
     if vault_id and vault_mod.can_upload_to_vault(vault_id, x_vault_upload_claim):
         in_vault = vault_mod.add_photo_to_vault(vault_id, short_id, safe_name)
 
+    schedule_auto_backup("upload")
+
     return JSONResponse(
         {
             "short_id": short_id,
@@ -341,6 +350,8 @@ async def vault_login(password: str = Form(...), intent: str = Form("auto")):
         )
     if result.get("error") == "not_found":
         raise HTTPException(status_code=404, detail="FlowVault с таким паролем не найден")
+    if result.get("created"):
+        schedule_auto_backup("vault_create")
     return result
 
 
@@ -389,6 +400,7 @@ async def vault_delete_photo(
         raise HTTPException(status_code=400, detail="Неверный ID")
     if not vault_mod.delete_vault_photo_permanent(vault_id, short_id, x_vault_upload_claim):
         raise HTTPException(status_code=403, detail="Нет прав или фото не найдено")
+    schedule_auto_backup("vault_delete")
     return {"ok": True, "deleted": short_id}
 
 
@@ -407,6 +419,7 @@ async def vault_delete_batch(
     deleted = vault_mod.delete_vault_photos_batch(vault_id, ids, x_vault_upload_claim)
     if deleted == 0:
         raise HTTPException(status_code=403, detail="Нет прав на удаление")
+    schedule_auto_backup("vault_delete_batch")
     return {"ok": True, "deleted_count": deleted}
 
 
@@ -421,6 +434,7 @@ async def vault_burn_all(
     deleted = vault_mod.burn_all_vault_photos(vault_id, x_vault_upload_claim)
     if deleted == 0 and vault_mod.list_vault_photos(vault_id):
         raise HTTPException(status_code=403, detail="Нет прав на удаление")
+    schedule_auto_backup("vault_burn")
     return {"ok": True, "deleted_count": deleted}
 
 
@@ -435,6 +449,7 @@ async def vault_delete_account(
         raise HTTPException(status_code=401, detail="Нужен вход в FlowVault")
     if not vault_mod.delete_vault_account(vault_id, password.strip(), x_vault_upload_claim):
         raise HTTPException(status_code=403, detail="Неверный пароль или нет прав")
+    schedule_auto_backup("vault_account_delete")
     return {"ok": True, "deleted": True}
 
 
@@ -444,7 +459,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.4.2",
+        "version": "3.4.3",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,
@@ -452,6 +467,7 @@ async def health():
             "max_seconds": MAX_RETENTION_SECONDS,
         },
         "storage": stats,
+        "backup": backup_status(),
         "backup_configured": backup_configured(),
         "disk_persistent": DATA_DIR.as_posix() == "/data",
         "public": True,

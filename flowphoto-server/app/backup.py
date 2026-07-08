@@ -5,6 +5,8 @@ import logging
 import os
 import shutil
 import sqlite3
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +16,14 @@ logger = logging.getLogger("flowphoto.backup")
 
 _BACKUP_INTERVAL = int(os.environ.get("FLOWPHOTO_BACKUP_INTERVAL", str(24 * 3600)))
 _BACKUP_KEEP = int(os.environ.get("FLOWPHOTO_BACKUP_KEEP", "12"))
+_AUTO_DEBOUNCE_SEC = int(os.environ.get("FLOWPHOTO_BACKUP_AUTO_DEBOUNCE", "60"))
+_AUTO_MIN_GAP_SEC = int(os.environ.get("FLOWPHOTO_BACKUP_AUTO_MIN_GAP", "45"))
+
+_last_backup_at: str | None = None
+_auto_pending = False
+_auto_timer: threading.Timer | None = None
+_auto_lock = threading.Lock()
+_last_run_mono = 0.0
 
 
 def backup_configured() -> bool:
@@ -22,6 +32,47 @@ def backup_configured() -> bool:
         and os.environ.get("FLOWPHOTO_BACKUP_ACCESS_KEY")
         and os.environ.get("FLOWPHOTO_BACKUP_SECRET_KEY")
     )
+
+
+def backup_status() -> dict:
+    return {
+        "configured": backup_configured(),
+        "interval_sec": _BACKUP_INTERVAL,
+        "auto_debounce_sec": _AUTO_DEBOUNCE_SEC,
+        "auto_pending": _auto_pending,
+        "last_upload_at": _last_backup_at,
+    }
+
+
+def schedule_auto_backup(reason: str = "change") -> None:
+    """Фоновый бэкап в Storj через debounce после изменений в БД."""
+    global _auto_timer, _auto_pending
+    if not backup_configured():
+        return
+    photos, vaults = entity_counts()
+    if not _has_meaningful_data(photos, vaults):
+        return
+    with _auto_lock:
+        _auto_pending = True
+        if _auto_timer is not None:
+            _auto_timer.cancel()
+        _auto_timer = threading.Timer(_AUTO_DEBOUNCE_SEC, _fire_auto_backup, args=(reason,))
+        _auto_timer.daemon = True
+        _auto_timer.start()
+    logger.info("Auto backup scheduled in %ss (%s)", _AUTO_DEBOUNCE_SEC, reason)
+
+
+def _fire_auto_backup(reason: str) -> None:
+    global _auto_pending, _last_backup_at, _last_run_mono, _auto_timer
+    with _auto_lock:
+        _auto_pending = False
+        _auto_timer = None
+    if time.monotonic() - _last_run_mono < _AUTO_MIN_GAP_SEC:
+        logger.info("Auto backup skipped (cooldown, %s)", reason)
+        return
+    if _run_backup_inner():
+        _last_run_mono = time.monotonic()
+        logger.info("Auto backup completed (%s)", reason)
 
 
 def _s3_client():
@@ -212,7 +263,8 @@ def _prune_old_backups(client, bucket: str, prefix: str, keep: int) -> None:
             logger.warning("Failed to prune %s: %s", key, exc)
 
 
-def run_backup() -> bool:
+def _run_backup_inner() -> bool:
+    global _last_backup_at
     if not backup_configured():
         return False
     if not DB_PATH.exists():
@@ -244,6 +296,7 @@ def run_backup() -> bool:
             },
         )
         _prune_old_backups(client, bucket, prefix, _BACKUP_KEEP)
+        _last_backup_at = datetime.now(timezone.utc).isoformat()
         logger.info(
             "Backup uploaded: s3://%s/%s (photos=%s, vaults=%s)",
             bucket,
@@ -258,3 +311,11 @@ def run_backup() -> bool:
     finally:
         if tmp.exists():
             tmp.unlink(missing_ok=True)
+
+
+def run_backup() -> bool:
+    ok = _run_backup_inner()
+    if ok:
+        global _last_run_mono
+        _last_run_mono = time.monotonic()
+    return ok
