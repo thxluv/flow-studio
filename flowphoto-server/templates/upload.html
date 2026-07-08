@@ -5,12 +5,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="mb-6 sm:mb-8">
-    <h1 class="font-display text-xl sm:text-3xl tracking-tight mb-2">Приватный обмен фото</h1>
-    <p class="text-sm text-slate-400 leading-relaxed">
-        Шифрование <span class="text-violet-300">в браузере</span> (AES-GCM 256). Ключ — в ссылке после <code class="text-violet-400/90">#</code>.
-        Можно загрузить несколько фото сразу.
+<div class="mb-5 sm:mb-7">
+    <h1 class="fp-page-title mb-2">Приватный обмен фото</h1>
+    <p class="fp-page-lead mb-4">
+        Шифрование <span class="text-violet-300">в браузере</span> (AES-GCM 256). Ключ — в части ссылки после <span class="fp-code">#</span>.
+        Сервер видит только «кашу» — не содержимое.
     </p>
+    <div class="fp-steps max-w-lg">
+        <div class="fp-step"><div class="fp-step-num">1</div><div class="fp-step-text">Выбери фото</div></div>
+        <div class="fp-step"><div class="fp-step-num">2</div><div class="fp-step-text">Зашифруй</div></div>
+        <div class="fp-step"><div class="fp-step-num">3</div><div class="fp-step-text">Отправь ссылку</div></div>
+    </div>
 </div>
 
 <div id="vault-badge" class="hidden mb-4 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2 text-[11px] text-violet-200 flex items-center justify-between gap-2">
@@ -26,7 +31,10 @@
     <a href="/vault" class="inline-block text-[11px] text-violet-300 hover:text-violet-100">Создать свой FlowVault →</a>
 </div>
 
-<p class="text-[10px] text-slate-600 leading-relaxed mb-4" id="upload-disclaimer"></p>
+<div class="fp-callout fp-callout-info mb-4" id="upload-disclaimer-wrap">
+    <i class="fa-solid fa-circle-info text-violet-400/80 mr-1"></i>
+    <span class="fp-hint text-violet-200/90" id="upload-disclaimer"></span>
+</div>
 
 <div id="drop-zone" class="fp-drop rounded-2xl p-6 sm:p-10 text-center cursor-pointer mb-5"
      onclick="if(uploadAllowed) document.getElementById('file-input').click()">
@@ -40,8 +48,9 @@
     <div id="preview-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
 
     <!-- Срок хранения -->
-    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 space-y-3">
-        <div class="text-sm text-slate-200 font-medium"><i class="fa-solid fa-hourglass-half text-violet-400 mr-1 text-xs"></i> Срок хранения</div>
+    <div class="fp-card p-4 space-y-3">
+        <div class="fp-section-title"><i class="fa-solid fa-hourglass-half text-violet-400 text-xs"></i> Срок хранения</div>
+        <p class="fp-hint">Фото удалится, если никто не откроет ссылку до истечения срока.</p>
         <div class="flex flex-wrap gap-2" id="retention-presets">
             <button type="button" data-seconds="86400" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">1 день</button>
             <button type="button" data-seconds="604800" class="fp-retention-chip px-3 py-1.5 rounded-lg text-[11px] font-medium">7 дней</button>
@@ -67,8 +76,8 @@
     </div>
 
     <!-- Безопасность -->
-    <div class="rounded-2xl border border-violet-950/80 bg-black/30 p-4 space-y-3">
-        <div class="text-sm text-slate-200 font-medium"><i class="fa-solid fa-shield-halved text-violet-400 mr-1 text-xs"></i> Дополнительно</div>
+    <div class="fp-card p-4 space-y-3">
+        <div class="fp-section-title"><i class="fa-solid fa-shield-halved text-violet-400 text-xs"></i> Дополнительно</div>
         <div class="flex items-center justify-between gap-3">
             <div>
                 <div class="text-xs text-slate-300">Режим «Секрет»</div>
@@ -77,7 +86,7 @@
             <div id="toggle-burn" class="fp-toggle" onclick="burnMode=fpToggle(this)"></div>
         </div>
         <div>
-            <label class="text-[10px] text-slate-500 block mb-1">Пароль на ссылку (опционально)</label>
+            <label class="fp-label" for="link-password">Пароль на ссылку <span class="text-slate-500 font-normal">(необязательно)</span></label>
             <input type="password" id="link-password" placeholder="Второй фактор при открытии" class="fp-text-input w-full px-3 py-2 rounded-lg text-xs" autocomplete="new-password">
         </div>
     </div>
@@ -87,9 +96,12 @@
     </button>
 </div>
 
-<div id="result-block" class="hidden rounded-2xl border border-violet-500/30 bg-violet-950/15 p-4 sm:p-5 space-y-4">
-    <div class="flex items-center gap-2 text-emerald-400 text-sm font-medium">
-        <i class="fa-solid fa-circle-check"></i> <span id="result-title">Готово</span>
+<div id="result-block" class="hidden fp-card border-violet-500/35 bg-violet-950/20 p-4 sm:p-5 space-y-4">
+    <div class="space-y-1">
+        <div class="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+            <i class="fa-solid fa-circle-check"></i> <span id="result-title">Готово</span>
+        </div>
+        <p class="fp-hint">Скопируй ссылку целиком — часть после <span class="fp-code">#</span> обязательна для расшифровки.</p>
     </div>
     <div id="result-list" class="space-y-3 max-h-[50vh] overflow-y-auto"></div>
     <button type="button" id="copy-all-btn" class="fp-btn-secondary w-full py-2.5 rounded-xl text-xs text-violet-200">

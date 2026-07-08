@@ -4,18 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowPhoto — переход</title>
-    <meta http-equiv="refresh" content="2;url=https://flowphoto.onrender.com/">
+    <meta name="description" content="Переход на FlowPhoto — приватный обмен зашифрованными фото">
     <script src="flow-config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { font-family: system-ui, sans-serif; background: #06060b; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-        .box { text-align: center; padding: 2rem; }
-        a { color: #a78bfa; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #06060b;
+            background-image: radial-gradient(ellipse 70% 45% at 50% -10%, rgba(124, 58, 237, 0.15), transparent);
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 1.5rem;
+        }
+        .box {
+            text-align: center;
+            max-width: 22rem;
+            padding: 2rem 1.5rem;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 1.25rem;
+            background: rgba(0, 0, 0, 0.35);
+        }
+        .logo {
+            width: 3rem; height: 3rem; margin: 0 auto 1rem;
+            border-radius: 0.85rem;
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            display: flex; align-items: center; justify-content: center;
+        }
+        h1 {
+            font-family: 'Space Grotesk', 'Inter', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem;
+        }
+        p { font-size: 0.875rem; color: #94a3b8; line-height: 1.55; margin: 0 0 1rem; }
+        a { color: #a78bfa; word-break: break-all; font-size: 0.8125rem; }
+        .spin { color: #8b5cf6; font-size: 1.5rem; margin-bottom: 0.75rem; }
     </style>
 </head>
 <body>
     <div class="box">
-        <p>Открываем FlowPhoto…</p>
-        <p><a id="fp-link" href="https://flowphoto.onrender.com/">https://flowphoto.onrender.com</a></p>
+        <div class="logo"><i class="fa-solid fa-eye-low-vision text-violet-400"></i></div>
+        <div class="spin"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+        <h1>Открываем FlowPhoto</h1>
+        <p>Приватный обмен фото с шифрованием в браузере</p>
+        <a id="fp-link" href="https://flowphoto.onrender.com/">flowphoto.onrender.com</a>
     </div>
     <script>
         const LOCAL = 'http://127.0.0.1:8000';
@@ -24,6 +62,7 @@
         function redirect(url) {
             const u = url.replace(/\/$/, '') + '/';
             document.getElementById('fp-link').href = u;
+            document.getElementById('fp-link').textContent = u.replace(/^https?:\/\//, '');
             location.replace(u);
         }
 

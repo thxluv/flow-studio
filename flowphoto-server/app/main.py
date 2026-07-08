@@ -65,7 +65,7 @@ CORS_ORIGINS = DEFAULT_ORIGINS + [o.strip() for o in _extra.split(",") if o.stri
 app = FastAPI(
     title="FlowPhoto",
     description="Приватный обмен фото: шифрование в браузере, сервер хранит только ciphertext",
-    version="3.4.3",
+    version="3.5.0",
 )
 
 

@@ -5,78 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Политика конфиденциальности — Flow Studio</title>
     <meta name="description" content="Политика конфиденциальности FlowNote и FlowPhoto">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
-        a { color: #5eead4; }
-        h1, h2 { color: #f8fafc; }
-    </style>
+    <link rel="stylesheet" href="studio-legal.css">
 </head>
-<body class="max-w-3xl mx-auto px-4 py-10 leading-relaxed text-sm">
-    <p class="text-xs text-slate-500 mb-6"><a href="index.html">← Flow Studio</a></p>
-    <h1 class="text-2xl font-semibold mb-2">Политика конфиденциальности</h1>
-    <p class="text-slate-400 mb-8">Дата вступления в силу: 8 июля 2026</p>
+<body>
+    <div class="legal-wrap">
+        <a href="index.html" class="legal-back">← Flow Studio</a>
+        <div class="legal-badge">Документ</div>
+        <h1>Политика конфиденциальности</h1>
+        <p class="legal-date">Дата вступления в силу: 8 июля 2026</p>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">1. Общие положения</h2>
-        <p>Flow Studio — некоммерческий набор веб-инструментов (<strong>FlowNote</strong> и <strong>FlowPhoto</strong>). Оператор сервиса — владелец репозитория <a href="https://github.com/thxluv/flow-studio">flow-studio</a> (далее — «мы», «оператор»).</p>
-        <p>Используя сервисы, вы соглашаетесь с этой политикой. Если вы не согласны — не используйте сервисы.</p>
-    </section>
+        <section class="legal-section">
+            <h2>1. Общие положения</h2>
+            <p>Flow Studio — некоммерческий набор веб-инструментов (<strong>FlowNote</strong> и <strong>FlowPhoto</strong>). Оператор сервиса — владелец репозитория <a href="https://github.com/thxluv/flow-studio">flow-studio</a>.</p>
+            <p>Используя сервисы, вы соглашаетесь с этой политикой. Если вы не согласны — не используйте сервисы.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">2. Принцип zero-knowledge</h2>
-        <p><strong>FlowNote:</strong> заметки и идеи по умолчанию хранятся <em>только в вашем браузере</em> (localStorage). При включении шифрования мастер-пароль и ключи не передаются на сервер — мы их не видим и не храним.</p>
-        <p><strong>FlowPhoto:</strong> фото шифруются в браузере (AES-GCM). Ключ расшифровки находится в части ссылки после <code>#</code> и <em>не отправляется</em> на сервер. Сервер хранит только зашифрованные байты (ciphertext).</p>
-        <p><strong>FlowVault:</strong> пароль сейфа на сервере хранится в виде криптографического хеша. Ключи отдельных фото остаются у вас в браузере или в локальном файле бэкапа <code>.flowvault</code>.</p>
-    </section>
+        <section class="legal-section">
+            <h2>2. Принцип zero-knowledge</h2>
+            <p><strong>FlowNote:</strong> заметки и идеи по умолчанию хранятся <em>только в вашем браузере</em>. Мастер-пароль и ключи не передаются на сервер.</p>
+            <p><strong>FlowPhoto:</strong> фото шифруются в браузере (AES-GCM). Ключ — в части ссылки после <code>#</code>, на сервер не отправляется.</p>
+            <p><strong>FlowVault:</strong> пароль сейфа на сервере — только хеш. Ключи фото — в браузере или в файле <code>.flowvault</code>.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">3. Какие данные обрабатываются</h2>
-        <ul class="list-disc pl-5 space-y-2 text-slate-300">
-            <li><strong>FlowNote (GitHub Pages):</strong> мы не получаем содержимое ваших заметок. Технически GitHub/Microsoft могут обрабатывать IP-адрес и метаданные HTTP-запроса при загрузке статической страницы.</li>
-            <li><strong>FlowPhoto (Render.com, США):</strong> IP-адрес, User-Agent, зашифрованные файлы, метаданные (имя файла, размер, срок хранения, счётчик просмотров), хеш пароля FlowVault и хеш опционального пароля ссылки.</li>
-            <li><strong>Локально в браузере:</strong> настройки темы, ключи ссылок FlowVault, токены сессии — только на вашем устройстве.</li>
-        </ul>
-    </section>
+        <section class="legal-section">
+            <h2>3. Какие данные обрабатываются</h2>
+            <ul>
+                <li><strong>FlowNote (GitHub Pages):</strong> содержимое заметок мы не получаем. GitHub может обрабатывать IP и метаданные запроса.</li>
+                <li><strong>FlowPhoto (Render, США):</strong> IP, User-Agent, зашифрованные файлы, метаданные, хеш пароля FlowVault.</li>
+                <li><strong>Локально:</strong> тема, ключи ссылок, токены сессии — только на вашем устройстве.</li>
+            </ul>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">4. Цели обработки</h2>
-        <ul class="list-disc pl-5 space-y-2 text-slate-300">
-            <li>Предоставление функционала обмена и хранения (в зашифрованном виде).</li>
-            <li>Ограничение злоупотреблений (rate limiting, квоты диска).</li>
-            <li>Техническая поддержка работоспособности сервиса.</li>
-        </ul>
-        <p>Мы не продаём данные, не используем их для рекламного таргетинга и не строим поведенческие профили.</p>
-    </section>
+        <section class="legal-section">
+            <h2>4. Цели обработки</h2>
+            <ul>
+                <li>Предоставление функционала обмена и хранения (в зашифрованном виде).</li>
+                <li>Ограничение злоупотреблений (rate limiting, квоты).</li>
+                <li>Поддержка работоспособности сервиса.</li>
+            </ul>
+            <p>Мы не продаём данные и не используем их для рекламного таргетинга.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">5. Трансграничная передача</h2>
-        <p>FlowPhoto размещён на инфраструктуре <strong>Render (США)</strong>. Загружая файлы, вы передаёте зашифрованные данные и технические метаданные за пределы РФ. FlowNote на GitHub Pages также может обрабатываться инфраструктурой за пределами РФ.</p>
-    </section>
+        <section class="legal-section">
+            <h2>5. Трансграничная передача</h2>
+            <p>FlowPhoto размещён на <strong>Render (США)</strong>. Загружая файлы, вы передаёте зашифрованные данные и метаданные за пределы РФ.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">6. Срок хранения</h2>
-        <p>FlowPhoto: файлы удаляются по истечении выбранного срока хранения, при ручном удалении, в режиме «Секрет» — после первого просмотра, либо при переполнении квоты сервера. На бесплатном тарифе Render данные могут быть <strong>утрачены при перезапуске</strong> сервиса.</p>
-        <p>FlowNote: данные хранятся, пока вы не очистите localStorage или браузер.</p>
-    </section>
+        <section class="legal-section legal-warn">
+            <h2>6. Срок хранения</h2>
+            <p>FlowPhoto: удаление по сроку, вручную, в режиме «Секрет» или при переполнении квоты. Бэкап в Storj смягчает потерю при рестарте Render Free.</p>
+            <p>FlowNote: данные живут, пока вы не очистите localStorage или браузер.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">7. Ваши права</h2>
-        <p>Вы можете удалить загруженные фото (ссылка перестанет работать), удалить FlowVault, очистить данные браузера. Для запросов по персональным данным: создайте issue в репозитории GitHub проекта.</p>
-    </section>
+        <section class="legal-section">
+            <h2>7. Ваши права</h2>
+            <p>Вы можете удалить фото, FlowVault, очистить браузер. Запросы — через GitHub Issues репозитория.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">8. Безопасность</h2>
-        <p>Мы применяем шифрование на клиенте, HTTPS, ограничение запросов и минимизацию данных на сервере. Абсолютной безопасности не существует — вы несёте ответственность за сохранность паролей, ключей в ссылках и файлов бэкапа.</p>
-    </section>
+        <section class="legal-section">
+            <h2>8. Безопасность</h2>
+            <p>Шифрование на клиенте, HTTPS, rate limiting. Абсолютной безопасности нет — вы отвечаете за пароли и ключи.</p>
+        </section>
 
-    <section class="space-y-4 mb-8">
-        <h2 class="text-lg font-medium">9. Изменения политики</h2>
-        <p>Актуальная версия всегда на этой странице. Существенные изменения будут отражены в репозитории проекта.</p>
-    </section>
+        <section class="legal-section">
+            <h2>9. Изменения</h2>
+            <p>Актуальная версия на этой странице. Изменения — в репозитории проекта.</p>
+        </section>
 
-    <p class="text-slate-500 text-xs border-t border-slate-800 pt-6">
-        См. также <a href="terms.html">Условия использования</a>. Документ не является юридической консультацией.
-    </p>
+        <p class="legal-footer">См. также <a href="terms.html">Условия использования</a>. Не является юридической консультацией.</p>
+    </div>
 </body>
 </html>
