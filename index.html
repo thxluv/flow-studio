@@ -666,7 +666,18 @@
         .fn-input { width: 100%; background: #0f172a; border: 1px solid #475569; border-radius: 1rem; padding: 0.75rem 1rem; font-size: 0.875rem; color: #e2e8f0; outline: none; }
         .fn-input:focus { border-color: #14b8a6; box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15); }
         .fn-error { font-size: 0.75rem; color: #f87171; margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(127, 29, 29, 0.25); }
+
+        #legal-accept-banner {
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0));
+        }
+        body.legal-banner-visible .mobile-bottom-nav {
+            bottom: 3.25rem;
+        }
+        @media (min-width: 1024px) {
+            body.legal-banner-visible { padding-bottom: 3.5rem; }
+        }
     </style>
+    <script src="legal-contacts.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-200">
     <!-- Lock Screen -->
@@ -797,6 +808,22 @@
             </button>
             <button type="button" onclick="toggleDeepFocus(false)" class="text-xs px-3 py-1.5 border border-slate-600 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-white transition-colors">
                 Выйти <span class="hidden sm:inline text-slate-500">(Esc)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Принятие условий (первый визит) -->
+    <div id="legal-accept-banner" class="hidden fixed bottom-0 left-0 right-0 z-[85] border-t border-slate-700 bg-slate-950/95 backdrop-blur-md px-4 py-3 sm:py-3.5">
+        <div class="max-w-screen-2xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed flex-1">
+                Используя Flow Studio, вы принимаете
+                <a href="terms.html" class="text-teal-400 hover:text-teal-300 underline-offset-2 hover:underline">Условия использования</a>
+                и
+                <a href="privacy.html" class="text-teal-400 hover:text-teal-300 underline-offset-2 hover:underline">Политику конфиденциальности</a>.
+            </p>
+            <button type="button" id="legal-accept-btn" onclick="FlowLegal.acceptLegal()"
+                    class="shrink-0 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-medium min-h-[44px]">
+                Понятно
             </button>
         </div>
     </div>
@@ -1722,6 +1749,33 @@
                             </p>
                             <p class="text-[10px] text-slate-500">Esc — закрыть палитру / выйти из фокуса. Глобальные Ctrl+K — скоро.</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Правовая информация -->
+                <div class="border border-slate-700 rounded-2xl overflow-hidden">
+                    <button type="button" onclick="toggleSettingsSection('legal')"
+                            class="settings-accordion-header w-full flex items-center justify-between px-4 py-3 hover:bg-slate-800/50 text-left">
+                        <span class="flex items-center gap-x-2.5 font-medium">
+                            <i class="fa-solid fa-scale-balanced text-slate-400 text-xs w-4"></i>
+                            Правовая информация
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 settings-chevron" id="chevron-legal"></i>
+                    </button>
+                    <div id="settings-section-legal" class="settings-accordion-body px-4 pb-4">
+                        <p class="fn-hint mb-3 pt-1">Документы Flow Studio. Контакты — в <code class="text-teal-400/80 text-xs">legal-contacts.js</code>.</p>
+                        <div class="space-y-2">
+                            <a href="terms.html" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 w-full py-2.5 px-4 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm text-slate-300 no-underline">
+                                <i class="fa-solid fa-file-contract text-slate-500 text-xs w-4"></i> Условия использования
+                            </a>
+                            <a href="privacy.html" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 w-full py-2.5 px-4 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm text-slate-300 no-underline">
+                                <i class="fa-solid fa-user-shield text-slate-500 text-xs w-4"></i> Политика конфиденциальности
+                            </a>
+                            <a href="law-enforcement.html" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 w-full py-2.5 px-4 rounded-xl border border-amber-900/40 bg-amber-950/15 hover:bg-amber-950/25 text-sm text-amber-100/90 no-underline">
+                                <i class="fa-solid fa-building-shield text-amber-500/80 text-xs w-4"></i> Для правоохранительных органов
+                            </a>
+                        </div>
+                        <p class="fn-hint mt-3">Email: <a href="#" data-legal-email="general" class="text-teal-400/90 hover:text-teal-300"></a></p>
                     </div>
                 </div>
 
@@ -4700,6 +4754,9 @@
             }
             startSelfDestructWatcher();
             updateIncognitoUI();
+            if (window.FlowLegal) {
+                FlowLegal.showAcceptBannerIfNeeded();
+            }
             console.log('%c[FlowNote Studio] Приложение успешно инициализировано', 'color:#64748b');
         }
 
