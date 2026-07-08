@@ -38,14 +38,19 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 Подробности сервера: [flowphoto-server/README.md](flowphoto-server/README.md)
 
+## Статус и планы
+
+**[СТАТУС-ПРОЕКТА.txt](СТАТУС-ПРОЕКТА.txt)** — суть проекта, что сделано, чекап, roadmap.
+
 ## Архив
 
-Внутренние планы и скрипты разработки — в папке [`archive/`](archive/). На работу сайта не влияют.
+Справочники (Storj, env-шаблон) — в [`archive/`](archive/).
 
-## Юридические документы
+## Юридические документы (ред. 2.2)
 
 - [privacy.html](privacy.html) — Политика конфиденциальности
 - [terms.html](terms.html) — Условия использования
+- [law-enforcement.html](law-enforcement.html) — Для правоохранительных органов
 
 ## Безопасность
 

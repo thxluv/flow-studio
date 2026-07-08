@@ -459,7 +459,7 @@ async def health():
     return {
         "status": "ok",
         "service": "flowphoto",
-        "version": "3.4.3",
+        "version": "3.5.0",
         "data_dir": str(DATA_DIR),
         "retention": {
             "default_seconds": DEFAULT_RETENTION_SECONDS,
