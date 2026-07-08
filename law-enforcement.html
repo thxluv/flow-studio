@@ -6,36 +6,48 @@
     <title>Для правоохранительных органов — Flow Studio</title>
     <meta name="description" content="Порядок взаимодействия Flow Studio с уполномоченными государственными органами">
     <link rel="stylesheet" href="studio-legal.css">
+    <script src="legal-contacts.js"></script>
+    <style>.legal-contact-label { color: #94a3b8; font-size: 0.875em; }</style>
 </head>
 <body>
     <div class="legal-wrap">
         <a href="index.html" class="legal-back">← Flow Studio</a>
+        <div class="legal-badge">Правоохранительные органы · ред. 2.2</div>
         <h1>Запросы уполномоченных органов</h1>
         <p class="legal-date">8 июля 2026</p>
 
         <section class="legal-section">
-            <h2>1. Возможности Оператора</h2>
-            <p>Оператор может (при наличии надлежащих оснований):</p>
+            <h2>1. Статус</h2>
+            <p>Flow Studio (FlowNote, FlowPhoto, FlowVault) — pet-проект физического лица. Не ОРИ и не публичная площадка. Контент хранится как <strong>Ciphertext</strong>; ключи у Пользователя (<code>#</code> в URL, браузер, <code>.flowvault</code>). FlowNote на сервер не передаётся. EXIF с фото удаляется до шифрования; имена файлов на сервере анонимизированы.</p>
+        </section>
+
+        <section class="legal-section">
+            <h2>2. Основания для запросов</h2>
+            <p>Запросы исполняются при наличии <strong>решения суда</strong> и/или <strong>обязательного требования уполномоченного госоргана РФ</strong> в объёме документа. Жалобы граждан без процессуальных актов — по <a href="terms.html">Условиям</a>, как правило, не исполняются.</p>
+        </section>
+
+        <section class="legal-section">
+            <h2>3. Что можем</h2>
             <ul>
-                <li>Удалить или заблокировать доступ к конкретному объекту по его идентификатору (short_id / URL);</li>
-                <li>Предоставить имеющиеся технические метаданные (IP, User-Agent, время запроса, размер, срок хранения и т.д.);</li>
-                <li>Подтвердить наличие или отсутствие объекта хранения.</li>
+                <li>Удалить или заблокировать объект по <code>short_id</code> / URL;</li>
+                <li>Выдать техметаданные: IP, User-Agent, время (если есть у хостинга/в момент обработки), размер, MIME, срок, счётчик просмотров, хеш пароля сейфа;</li>
+                <li>Подтвердить наличие или отсутствие Ciphertext по ID.</li>
             </ul>
         </section>
 
         <section class="legal-section legal-warn">
-            <h2>2. Что Оператор не может</h2>
+            <h2>4. Что не можем</h2>
             <ul>
-                <li>Расшифровать зашифрованные данные (Ciphertext) — ключи отсутствуют у Оператора;</li>
-                <li>Предоставить содержимое заметок FlowNote;</li>
-                <li>Идентифицировать личность Пользователя сверх имеющихся технических данных.</li>
+                <li>Расшифровать Ciphertext — ключей нет;</li>
+                <li>Выдать заметки FlowNote;</li>
+                <li>Идентифицировать личность beyond IP/UA (регистрации нет).</li>
             </ul>
         </section>
 
         <section class="legal-section">
-            <h2>3. Контакт</h2>
-            <p>hozage@ozvmail.com</p>
-            <p class="text-sm" style="color:#94a3b8">Тема: Legal / [орган] / [идентификатор объекта]</p>
+            <h2>5. Контакт</h2>
+            <p data-legal-contact="lawEnforcement"></p>
+            <p class="mt-2" style="color:#94a3b8;font-size:0.875rem">Тема письма: <code>Legal / [орган] / [short_id или URL]</code></p>
         </section>
 
         <p class="legal-footer">
