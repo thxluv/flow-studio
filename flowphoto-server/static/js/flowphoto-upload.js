@@ -247,7 +247,8 @@
         }
 
         const opts = options || {};
-        const { blob, mime } = await FlowPhotoCrypto.stripImageMetadata(file);
+        const stripped = await FlowPhotoCrypto.stripImageMetadata(file);
+        const { blob, mime } = stripped;
         const { payload, keyBytes } = await FlowPhotoCrypto.encryptBlob(blob);
         const form = new FormData();
         form.append('encrypted_file', new Blob([payload], { type: 'application/octet-stream' }), 'encrypted.bin');

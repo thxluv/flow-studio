@@ -9,7 +9,7 @@
     <h1 class="fp-page-title mb-2">Приватный обмен фото</h1>
     <p class="fp-page-lead mb-4">
         Шифрование <span class="text-violet-300">в браузере</span> (AES-GCM 256). Ключ — в части ссылки после <span class="fp-code">#</span>.
-        Сервер видит только «кашу» — не содержимое.
+        Сервер видит только «кашу» — не содержимое. EXIF и прочие метаданные снимка удаляются <strong class="text-slate-300">до</strong> шифрования.
     </p>
     <div class="fp-steps max-w-lg">
         <div class="fp-step"><div class="fp-step-num">1</div><div class="fp-step-text">Выбери фото</div></div>
@@ -197,8 +197,8 @@
 
     function addFiles(fileList) {
         if (!uploadAllowed) { showToast('Создай свой FlowVault для загрузки'); return; }
-        const incoming = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
-        if (!incoming.length) { showToast('Нужны изображения'); return; }
+        const incoming = Array.from(fileList || []).filter(f => FlowPhotoCrypto.isStrippableImage(f));
+        if (!incoming.length) { showToast('Нужны изображения (JPG, PNG, WebP, GIF)'); return; }
         for (const f of incoming) {
             if (f.size > MAX_BYTES) { showToast(f.name + ' — больше {{ max_mb }} МБ'); continue; }
             if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
